@@ -1,0 +1,24 @@
+{
+  "extends": [
+    "config:base",
+    ":semanticCommits",
+    ":semanticCommitTypeAll(chore)",
+    "schedule:weekends"
+  ],
+  "ignorePaths": [".github/**"],
+  "dependencyDashboard": true,
+  "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
+  "baseBranches": ["main"],
+  "packageRules": [
+    {
+      "description": "Group all minor (non-major) dependency updates in one PR",
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "update all non-major dependencies"
+    },
+    {
+      "description": "Ensure major updates remain separate",
+      "matchUpdateTypes": ["major"],
+      "groupName": null
+    }
+  ]
+}
