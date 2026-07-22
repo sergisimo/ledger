@@ -36,6 +36,10 @@ spec:
               valueFrom:
                 resourceFieldRef:
                   resource: limits.cpu
+            {{- range $key, $value := .Values.container.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
           ports:
             {{- range .Values.container.ports }}
             - name: {{ .name }}

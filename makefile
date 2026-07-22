@@ -54,6 +54,7 @@ local-cluster-up:
 			--config zarf/k8s/dev/kind-config.yaml && \
 		kubectl wait --timeout=120s -n=local-path-storage --for=condition=Available deployment/local-path-provisioner \
 	)
+	kubectl config use-context kind-$(KIND_CLUSTER)
 
 local-cluster-down:
 	kind delete cluster --name $(KIND_CLUSTER)
@@ -73,6 +74,9 @@ local-logs:
 # Port forwarding
 forward-debug:
 	kubectl port-forward -n $(NAMESPACE) svc/$(LEDGER_APP) 5000:8081
+
+forward-http:
+	kubectl port-forward -n $(NAMESPACE) svc/$(LEDGER_APP) 8080:8080
 
 # Modules support
 tidy:
