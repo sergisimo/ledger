@@ -1,0 +1,33 @@
+# Default values for Jaeger Helm chart
+
+container:
+  name: jaeger
+  image:
+    repository: docker.io/jaegertracing/jaeger
+    tag: "2.20.0"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  ports:
+    - name: otlp-grpc
+      containerPort: 4317
+      protocol: TCP
+    - name: ui
+      containerPort: 16686
+      protocol: TCP
+  env:
+    COLLECTOR_OTLP_ENABLED: "true"
+
+service:
+  type: ClusterIP
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: ui
+      port: 16686
+      targetPort: 16686

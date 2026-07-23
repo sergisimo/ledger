@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: ledger
+  labels:
+    app: jaeger
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: {{ .Values.container.name }}
+          image: "{{ .Values.container.image.repository }}:{{ .Values.container.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: {{ .Values.container.resources.requests.cpu | quote }}
+              memory: {{ .Values.container.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.container.resources.limits.cpu | quote }}
+              memory: {{ .Values.container.resources.limits.memory | quote }}
+          env:
+            {{- range $key, $value := .Values.container.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          ports:
+            {{- range .Values.container.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .containerPort }}
+              protocol: {{ .protocol | default "TCP" }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: ui
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /
+              port: ui
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3

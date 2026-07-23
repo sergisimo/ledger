@@ -1,6 +1,0 @@
-# Development-specific values for ledger Helm chart
-
-container:
-  image:
-    repository: localhost/sergisimo/ledger
-    tag: "0.0.1"

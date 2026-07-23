@@ -8,6 +8,9 @@ import (
 func Module() fx.Option {
 	return fx.Module(
 		"ledger",
+		fx.Provide(
+			fx.Annotate(NewAccountProviderUsecase, fx.As(new(AccountProviderUsecase))),
+		),
 		rest.ControllerFx(NewAccountProviderRestCtrl),
 	)
 }
