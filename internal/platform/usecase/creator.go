@@ -1,9 +1,13 @@
 package usecase
 
-import "context"
+import (
+	"context"
+
+	"github.com/sergisimo/ledger/internal/platform/resource"
+)
 
 // --------------------------------------------------------------- Contract
 
-type Creator[R any] interface {
+type Creator[R resource.Resource] interface {
 	Create(context.Context, R) (R, error)
 }
