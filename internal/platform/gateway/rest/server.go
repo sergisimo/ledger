@@ -8,7 +8,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/sergisimo/ledger/internal/platform/logger"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
@@ -70,13 +69,13 @@ func ServerWithTLSConfig(cfg *tls.Config) serverOpt {
 
 func ServerWithControllers(controllers ...Controller) serverOpt {
 	return func(s *serverCfg) {
-		s.controllers = controllers
+		s.controllers = append(s.controllers, controllers...)
 	}
 }
 
 func ServerWithMiddlewares(middlewares ...Middleware) serverOpt {
 	return func(s *serverCfg) {
-		s.middlewares = middlewares
+		s.middlewares = append(s.middlewares, middlewares...)
 	}
 }
 
@@ -104,14 +103,16 @@ func otelMiddleware() Middleware {
 	}
 }
 
-func NewServer(log *logger.Logger, opts ...serverOpt) (*http.Server, error) {
-	cfg := &serverCfg{}
+func NewServer(opts ...serverOpt) (*http.Server, error) {
+	cfg := &serverCfg{
+		controllers: []Controller{},
+		middlewares: []Middleware{},
+	}
 	for _, opt := range append(defaultServerOpts(), opts...) {
 		opt(cfg)
 	}
 
 	server := &http.Server{
-		ErrorLog:     logger.NewStdLogger(log, logger.LevelError),
 		ReadTimeout:  cfg.readTimeout,
 		WriteTimeout: cfg.writeTimeout,
 		IdleTimeout:  cfg.idleTimeout,

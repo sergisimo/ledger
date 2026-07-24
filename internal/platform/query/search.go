@@ -11,25 +11,22 @@ type (
 		Filters() Filters[any]
 		Sorting() SortingParams
 		Pagination() PaginationParams
-		IncludedResourceObjects() IncludedResourceObject
+		Load() []fields.Name
 	}
-
-	IncludedResourceObject []fields.Name
 )
 
 const (
-	FieldNameSearch   fields.Name = "search"
-	FieldNameIncludes fields.Name = "includes"
+	FieldNameSearch fields.Name = "search"
 )
 
 // --------------------------------------------------------------- Implementation
 
 type (
 	search struct {
-		filters                 Filters[any]
-		sorting                 SortingParams
-		pagination              PaginationParams
-		includedResourceObjects IncludedResourceObject
+		filters    Filters[any]
+		sorting    SortingParams
+		pagination PaginationParams
+		load       []fields.Name
 	}
 
 	SrchOption func(s *search)
@@ -37,10 +34,10 @@ type (
 
 func NewSearch(opts ...SrchOption) *search {
 	srch := &search{
-		filters:                 make(Filters[any]),
-		sorting:                 &sortingParams{fields: make(map[fields.Name]SortingDir), keys: []fields.Name{}},
-		pagination:              nil,
-		includedResourceObjects: IncludedResourceObject{},
+		filters:    make(Filters[any]),
+		sorting:    &sortingParams{fields: make(map[fields.Name]SortingDir), keys: []fields.Name{}},
+		pagination: nil,
+		load:       []fields.Name{},
 	}
 
 	for _, opt := range opts {
@@ -48,6 +45,12 @@ func NewSearch(opts ...SrchOption) *search {
 	}
 
 	return srch
+}
+
+func LoadRelated(fields ...fields.Name) SrchOption {
+	return func(s *search) {
+		s.load = append(s.load, fields...)
+	}
 }
 
 func (s *search) Filters() Filters[any] {
@@ -62,6 +65,6 @@ func (s *search) Pagination() PaginationParams { //nolint:ireturn // struct also
 	return s.pagination
 }
 
-func (s *search) IncludedResourceObjects() IncludedResourceObject {
-	return s.includedResourceObjects
+func (s *search) Load() []fields.Name {
+	return s.load
 }

@@ -1,7 +1,6 @@
 package metrics_test
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -11,16 +10,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/fx/fxtest"
 
-	"github.com/sergisimo/ledger/internal/platform/logger"
+	"github.com/sergisimo/ledger/internal/platform/logging"
 	"github.com/sergisimo/ledger/internal/platform/metrics"
 )
 
 func TestModule(t *testing.T) {
+	t.Setenv("SERVICE_NAME", "test-service")
 	debugHost := "localhost:6060"
 
 	app := fxtest.New(
 		t,
-		logger.Module("test-service", func(ctx context.Context) string { return "" }),
+		logging.Module(),
 		metrics.Module(debugHost),
 	)
 
