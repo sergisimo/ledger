@@ -18,6 +18,7 @@ container:
     - name: http-debug
       containerPort: 8081
   env:
+    SERVICE_NAME: "ledger"
     REST_ADDRESS: "0.0.0.0:8080"
     REST_READ_TIMEOUT: "5s"
     REST_WRITE_TIMEOUT: "10s"
