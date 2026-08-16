@@ -1,0 +1,5 @@
+HTTP/1.1 404 Not Found
+Connection: close
+Content-Type: application/json
+
+{"data":{"errors":[{"status":"404","detail":"resource of type 'tests' not found given: 'id eq 4321'"}]}}
