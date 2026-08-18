@@ -16,11 +16,25 @@ type (
 	RequestOption func(req *http.Request)
 )
 
-func NewGETRequest(t *testing.T, resType resource.Type, resID string, opts ...RequestOption) *http.Request {
+func NewGetRequest(t *testing.T, resType resource.Type, resID string, opts ...RequestOption) *http.Request {
 	t.Helper()
 
 	target := fmt.Sprintf("/%s/%s", resType, resID)
 	return newRequest(t, target, http.MethodGet, opts...)
+}
+
+func NewListRequest(t *testing.T, resType resource.Type, opts ...RequestOption) *http.Request {
+	t.Helper()
+
+	target := fmt.Sprintf("/%s", resType)
+	return newRequest(t, target, http.MethodGet, opts...)
+}
+
+func NewCreateRequest(t *testing.T, resType resource.Type, opts ...RequestOption) *http.Request {
+	t.Helper()
+
+	target := fmt.Sprintf("/%s", resType)
+	return newRequest(t, target, http.MethodPost, opts...)
 }
 
 func GetHandlerResponseFileDir(handlerName string) string {
@@ -50,6 +64,14 @@ func RequestWithBodyFromFile(t *testing.T, fileFolder, fileName string) RequestO
 func RequestWithHeader(key, value string) RequestOption {
 	return func(req *http.Request) {
 		req.Header.Set(key, value)
+	}
+}
+
+func RequestWithQueryParam(key, value string) RequestOption {
+	return func(req *http.Request) {
+		q := req.URL.Query()
+		q.Add(key, value)
+		req.URL.RawQuery = q.Encode()
 	}
 }
 

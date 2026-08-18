@@ -9,6 +9,7 @@ import (
 
 type (
 	response struct {
+		Meta     any   `json:"meta,omitempty"`
 		Data     any   `json:"data"`
 		Included []any `json:"included,omitempty"`
 	}
@@ -36,11 +37,11 @@ func encodeSingleJSONResponse(w http.ResponseWriter, statusCode int, data any) {
 	}
 }
 
-func encodeListJSONResponse(w http.ResponseWriter, statusCode int, data []any) {
+func encodeListJSONResponse(w http.ResponseWriter, statusCode int, data []any, totalCollSize uint) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 
-	response := response{Data: data}
+	response := response{Data: data, Meta: map[string]any{"totalCount": totalCollSize}}
 	response.Included = []any{}
 	for _, item := range data {
 		if itemWithIncluded, ok := item.(interface{ Included() []any }); ok {

@@ -14,7 +14,7 @@ import (
 
 type (
 	Encoder     func(w http.ResponseWriter, statusCode int, data any)
-	ListEncoder func(w http.ResponseWriter, statusCode int, data []any)
+	ListEncoder func(w http.ResponseWriter, statusCode int, data []any, totalCollSize uint)
 
 	HandlerOpt func(c *handlerConfig)
 
@@ -119,7 +119,7 @@ func NewListHandler[R, DTO resource.Resource](
 		}
 
 		dtoList := sliceutils.Map(resList.Items(), func(res R) any { return toDTO(res) })
-		cfg.listEncoder(w, cfg.status, dtoList)
+		cfg.listEncoder(w, cfg.status, dtoList, resList.TotalCollSize())
 	})
 }
 
@@ -144,13 +144,15 @@ func NewCreateHandler[R, DTO resource.Resource](
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var dto DTO
+		var dto struct {
+			Data DTO `json:"data"`
+		}
 		if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
 			cfg.errorEncoder(w, http.StatusBadRequest, err)
 			return
 		}
 
-		res, err := creator.Create(r.Context(), any(dto).(R))
+		res, err := creator.Create(r.Context(), any(dto.Data).(R))
 		if err != nil {
 			cfg.errorEncoder(w, http.StatusInternalServerError, err)
 			return

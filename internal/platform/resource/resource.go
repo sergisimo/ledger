@@ -29,6 +29,28 @@ func (t Type) String() string {
 	return string(t)
 }
 
+// --------------------------------------------------------------- Model
+
+type list[T Resource] struct {
+	items         []T
+	totalCollSize uint
+}
+
+func NewList[T Resource](items []T, totalCollSize uint) *list[T] {
+	return &list[T]{
+		items:         items,
+		totalCollSize: totalCollSize,
+	}
+}
+
+func (l *list[T]) Items() []T {
+	return l.items
+}
+
+func (l *list[T]) TotalCollSize() uint {
+	return l.totalCollSize
+}
+
 // --------------------------------------------------------------- Rest
 
 type RestDTO struct {

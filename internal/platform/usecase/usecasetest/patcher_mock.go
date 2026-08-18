@@ -40,15 +40,13 @@ func (_m *Patcher[R]) EXPECT() *Patcher_Expecter[R] {
 
 // Patch provides a mock function for the type Patcher
 func (_mock *Patcher[R]) Patch(context1 context.Context, patchOptions ...query.PatchOption) (R, error) {
-	// query.PatchOption
-	_va := make([]any, len(patchOptions))
-	for _i := range patchOptions {
-		_va[_i] = patchOptions[_i]
+	var tmpRet mock.Arguments
+	if len(patchOptions) > 0 {
+		tmpRet = _mock.Called(context1, patchOptions)
+	} else {
+		tmpRet = _mock.Called(context1)
 	}
-	var _ca []any
-	_ca = append(_ca, context1)
-	_ca = append(_ca, _va...)
-	ret := _mock.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for Patch")
@@ -94,11 +92,9 @@ func (_c *Patcher_Patch_Call[R]) Run(run func(context1 context.Context, patchOpt
 			arg0 = args[0].(context.Context)
 		}
 		var arg1 []query.PatchOption
-		variadicArgs := make([]query.PatchOption, len(args)-1)
-		for i, a := range args[1:] {
-			if a != nil {
-				variadicArgs[i] = a.(query.PatchOption)
-			}
+		var variadicArgs []query.PatchOption
+		if len(args) > 1 {
+			variadicArgs = args[1].([]query.PatchOption)
 		}
 		arg1 = variadicArgs
 		run(
