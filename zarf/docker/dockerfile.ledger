@@ -1,4 +1,4 @@
-FROM golang:1.26 AS build_ledger
+FROM golang:1.27 AS build_ledger
 ENV CGO_ENABLED=0
 ARG BUILD_TAG
 
