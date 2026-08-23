@@ -36,3 +36,9 @@ spec:
               valueFrom:
                 resourceFieldRef:
                   resource: limits.cpu
+          ports:
+            {{- range .Values.container.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .containerPort }}
+              protocol: {{ .protocol | default "TCP" }}
+            {{- end }}
