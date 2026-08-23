@@ -33,7 +33,7 @@ type (
 
 	errorResponse struct {
 		Status string `json:"status"`
-		Code   string `json:"code"`
+		Code   string `json:"code,omitempty"`
 		Detail string `json:"detail"`
 	}
 )

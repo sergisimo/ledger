@@ -124,7 +124,7 @@ func NewServer(opts ...serverOpt) (*http.Server, error) {
 	for _, ctrl := range cfg.controllers {
 		for _, ep := range ctrl.Endpoints() {
 			mux.Handle(
-				fmt.Sprintf("%s %s", ep.method, path.Join(ctrl.BasePath(), ep.path)),
+				fmt.Sprintf("%s %s", ep.Method, path.Join(ctrl.BasePath(), ep.Path)),
 				wrapMiddlewares(ep.Handler, cfg.middlewares...),
 			)
 		}

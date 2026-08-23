@@ -9,8 +9,8 @@ import (
 type (
 	Endpoint struct {
 		http.Handler
-		method string
-		path   string
+		Method string
+		Path   string
 	}
 )
 
@@ -43,7 +43,7 @@ func NewDeleteEndpoint(handler http.Handler) *Endpoint {
 func newEndpoint(method, path string, handler http.Handler) *Endpoint {
 	return &Endpoint{
 		Handler: handler,
-		method:  method,
-		path:    path,
+		Method:  method,
+		Path:    path,
 	}
 }
