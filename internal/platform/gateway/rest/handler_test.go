@@ -27,6 +27,8 @@ type (
 		get    http.Handler
 		list   http.Handler
 		create http.Handler
+		patch  http.Handler
+		delete http.Handler
 	}
 
 	testEntity interface {
@@ -91,6 +93,23 @@ func newTestCtrl(ucase *usecasetest.Usecase[testEntity]) *testCtrl {
 		get:    rest.NewGetHandler(ucase, testEntityToDTO),
 		list:   rest.NewListHandler(ucase, testEntityToDTO),
 		create: rest.NewCreateHandler(ucase, testEntityToDTO),
+		patch: rest.NewPatchHandler(
+			ucase,
+			func(dto *testDTO) ([]query.PatchOption, error) {
+				if dto.TStr == "" {
+					return nil, fields.NewErrInvalidEmptyString(fields.Name("str"))
+				}
+
+				return []query.PatchOption{
+					query.Patch("boolean", dto.TBoolean),
+					query.Patch("str", dto.TStr),
+					query.Patch("number", dto.TNumber),
+					query.Patch("double", dto.TDouble),
+				}, nil
+			},
+			testEntityToDTO,
+		),
+		delete: rest.NewDeleteHandler(ucase, query.DeleteTypeSoft),
 	}
 }
 
@@ -103,6 +122,8 @@ func (c *testCtrl) Endpoints() []*rest.Endpoint {
 		rest.NewGetEndpoint(c.get),
 		rest.NewListEndpoint(c.list),
 		rest.NewCreateEndpoint(c.create),
+		rest.NewPatchEndpoint(c.patch),
+		rest.NewDeleteEndpoint(c.delete),
 	}
 }
 
@@ -125,6 +146,18 @@ func (d *handlerDeps) expectList(opts []query.SrchOption, list resource.List[tes
 func (d *handlerDeps) expectCreate(toCreate, created testEntity, err error) {
 	matcher := mock.MatchedBy(matchTestEntity(toCreate))
 	d.ucase.Creator.EXPECT().Create(mock.Anything, matcher).Return(created, err)
+}
+
+func (d *handlerDeps) expectPatch(id string, opts []query.PatchOption, entity testEntity, err error) {
+	pOpts := []query.PatchOption{query.PatchSearchOpts(query.FilterBy(fields.NameID, filter.OpEq, id))}
+	opts = append(pOpts, opts...)
+	matcher := mock.MatchedBy(querytest.PatchOptMatcherFunc(opts...))
+	d.ucase.Patcher.EXPECT().Patch(mock.Anything, matcher).Return(entity, err)
+}
+
+func (d *handlerDeps) expectDelete(id string, delType query.DeleteType, err error) {
+	matcher := mock.MatchedBy(querytest.SrchOptMatcherFunc(query.FilterBy(fields.NameID, filter.OpEq, id)))
+	d.ucase.Deleter.EXPECT().Delete(mock.Anything, delType, matcher).Return(err)
 }
 
 func TestNewGetHandler(t *testing.T) {
@@ -498,6 +531,152 @@ func TestNewCreateHandler(t *testing.T) {
 			tt.name,
 			restest.NewEndpointsHandler(ctrl.BasePath(), ctrl.Endpoints()...),
 			restest.NewCreateRequest(t, resourceTypeTest, tt.reqOpts...),
+			tt.assertions...,
+		))
+	}
+
+	restest.NewHandlerSuite(handlerTests...).Exec(t)
+}
+
+func TestNewPatchHandler(t *testing.T) {
+	var (
+		createdAt  = time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+		reqFileDir = restest.GetHandlerRequestFileDir("patch")
+		resFileDir = restest.GetHandlerResponseFileDir("patch")
+
+		patched = &testDTO{
+			RestDTO: resource.ToRestDTO(resourcetest.New(
+				resourcetest.WithID("12345"),
+				resourcetest.WithType(resourceTypeTest),
+				resourcetest.WithCreatedAt(createdAt),
+				resourcetest.WithUpdatedAt(createdAt),
+			)),
+			TBoolean: false,
+			TStr:     "patched string",
+			TNumber:  99,
+			TDouble:  7.5,
+		}
+	)
+
+	tests := []struct {
+		name       string
+		id         string
+		mock       func(*handlerDeps)
+		reqOpts    []restest.RequestOption
+		assertions []restest.ResponseAssertion
+	}{
+		{
+			name: "ok",
+			id:   patched.ID(),
+			mock: func(deps *handlerDeps) {
+				deps.expectPatch(patched.ID(), []query.PatchOption{
+					query.Patch("boolean", false),
+					query.Patch("str", "patched string"),
+					query.Patch("number", 99),
+					query.Patch("double", 7.5),
+				}, patched, nil)
+			},
+			reqOpts: []restest.RequestOption{
+				restest.RequestWithBodyFromFile(t, reqFileDir, "valid.json"),
+			},
+			assertions: []restest.ResponseAssertion{
+				restest.AssertPatchResponseOK(),
+				restest.AssertResMatchingFile(resFileDir, "ok", *updateGoldenFiles),
+			},
+		},
+		{
+			name: "error from patch options decoder",
+			id:   "4321",
+			mock: func(deps *handlerDeps) {},
+			reqOpts: []restest.RequestOption{
+				restest.RequestWithBodyFromFile(t, reqFileDir, "invalid.json"),
+			},
+			assertions: []restest.ResponseAssertion{
+				restest.AssertResponseStatus(http.StatusBadRequest),
+				restest.AssertResMatchingFile(resFileDir, "invalid_patch_opts", *updateGoldenFiles),
+			},
+		},
+		{
+			name: "internal error",
+			id:   "4321",
+			mock: func(deps *handlerDeps) {
+				deps.expectPatch("4321", []query.PatchOption{
+					query.Patch("boolean", false),
+					query.Patch("str", "patched string"),
+					query.Patch("number", 99),
+					query.Patch("double", 7.5),
+				}, nil, assert.AnError)
+			},
+			reqOpts: []restest.RequestOption{
+				restest.RequestWithBodyFromFile(t, reqFileDir, "valid.json"),
+			},
+			assertions: []restest.ResponseAssertion{
+				restest.AssertResponseStatus(http.StatusInternalServerError),
+				restest.AssertResMatchingFile(resFileDir, "internal", *updateGoldenFiles),
+			},
+		},
+	}
+
+	handlerTests := []*restest.HandlerTest{}
+	for _, tt := range tests {
+		deps := &handlerDeps{ucase: usecasetest.New[testEntity](t)}
+		ctrl := newTestCtrl(deps.ucase)
+		tt.mock(deps)
+
+		handlerTests = append(handlerTests, restest.NewHandlerTest(
+			tt.name,
+			restest.NewEndpointsHandler(ctrl.BasePath(), ctrl.Endpoints()...),
+			restest.NewPatchRequest(t, resourceTypeTest, tt.id, tt.reqOpts...),
+			tt.assertions...,
+		))
+	}
+
+	restest.NewHandlerSuite(handlerTests...).Exec(t)
+}
+
+func TestNewDeleteHandler(t *testing.T) {
+	var resFileDir = restest.GetHandlerResponseFileDir("delete")
+
+	tests := []struct {
+		name       string
+		id         string
+		mock       func(*handlerDeps)
+		assertions []restest.ResponseAssertion
+	}{
+		{
+			name: "ok",
+			id:   "12345",
+			mock: func(deps *handlerDeps) {
+				deps.expectDelete("12345", query.DeleteTypeSoft, nil)
+			},
+			assertions: []restest.ResponseAssertion{
+				restest.AssertDeleteResponseNoContent(),
+				restest.AssertResMatchingFile(resFileDir, "ok", *updateGoldenFiles),
+			},
+		},
+		{
+			name: "internal error",
+			id:   "4321",
+			mock: func(deps *handlerDeps) {
+				deps.expectDelete("4321", query.DeleteTypeSoft, assert.AnError)
+			},
+			assertions: []restest.ResponseAssertion{
+				restest.AssertResponseStatus(http.StatusInternalServerError),
+				restest.AssertResMatchingFile(resFileDir, "internal", *updateGoldenFiles),
+			},
+		},
+	}
+
+	handlerTests := []*restest.HandlerTest{}
+	for _, tt := range tests {
+		deps := &handlerDeps{ucase: usecasetest.New[testEntity](t)}
+		ctrl := newTestCtrl(deps.ucase)
+		tt.mock(deps)
+
+		handlerTests = append(handlerTests, restest.NewHandlerTest(
+			tt.name,
+			restest.NewEndpointsHandler(ctrl.BasePath(), ctrl.Endpoints()...),
+			restest.NewDeleteRequest(t, resourceTypeTest, tt.id),
 			tt.assertions...,
 		))
 	}

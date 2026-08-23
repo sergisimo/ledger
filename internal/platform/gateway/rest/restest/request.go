@@ -37,6 +37,20 @@ func NewCreateRequest(t *testing.T, resType resource.Type, opts ...RequestOption
 	return newRequest(t, target, http.MethodPost, opts...)
 }
 
+func NewPatchRequest(t *testing.T, resType resource.Type, resID string, opts ...RequestOption) *http.Request {
+	t.Helper()
+
+	target := fmt.Sprintf("/%s/%s", resType, resID)
+	return newRequest(t, target, http.MethodPatch, opts...)
+}
+
+func NewDeleteRequest(t *testing.T, resType resource.Type, resID string, opts ...RequestOption) *http.Request {
+	t.Helper()
+
+	target := fmt.Sprintf("/%s/%s", resType, resID)
+	return newRequest(t, target, http.MethodDelete, opts...)
+}
+
 func GetHandlerResponseFileDir(handlerName string) string {
 	return filepath.Join(getHandlerFileDir(handlerName), "response")
 }

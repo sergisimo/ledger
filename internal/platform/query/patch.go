@@ -91,16 +91,16 @@ func (pf PatchFields) Reduce(allow ...fields.Name) {
 }
 
 type (
-	patchQuery struct {
+	patch struct {
 		patchFields map[fields.Name]PatchField
 		searchOpts  []SrchOption
 	}
 
-	PatchOption func(pq *patchQuery)
+	PatchOption func(pq *patch)
 )
 
-func NewPatchQuery(opts ...PatchOption) *patchQuery {
-	pq := &patchQuery{
+func NewPatch(opts ...PatchOption) *patch {
+	pq := &patch{
 		patchFields: make(map[fields.Name]PatchField),
 	}
 	for _, opt := range opts {
@@ -109,35 +109,35 @@ func NewPatchQuery(opts ...PatchOption) *patchQuery {
 	return pq
 }
 
-func (pq *patchQuery) SearchOpts() []SrchOption {
+func (pq *patch) SearchOpts() []SrchOption {
 	return pq.searchOpts
 }
 
-func (pq *patchQuery) Fields() PatchFields {
+func (pq *patch) Fields() PatchFields {
 	return pq.patchFields
 }
 
 func WithPatchQuery(query PatchQuery) PatchOption {
-	return func(pq *patchQuery) {
+	return func(pq *patch) {
 		pq.searchOpts = query.SearchOpts()
 		pq.patchFields = query.Fields()
 	}
 }
 
 func WithPatchFields(patchFields PatchFields) PatchOption {
-	return func(pq *patchQuery) {
+	return func(pq *patch) {
 		pq.patchFields = patchFields
 	}
 }
 
 func PatchSearchOpts(opts ...SrchOption) PatchOption {
-	return func(pq *patchQuery) {
+	return func(pq *patch) {
 		pq.searchOpts = opts
 	}
 }
 
 func Patch(name fields.Name, value any, opts ...patchFieldOption) PatchOption {
-	return func(pq *patchQuery) {
+	return func(pq *patch) {
 		pq.patchFields[name] = newPatchField(value, opts...)
 	}
 }

@@ -7,6 +7,8 @@ import (
 	"github.com/sergisimo/ledger/internal/platform/query"
 )
 
+// --------------------------------------------------------------- Search
+
 func SrchOptMatcherFunc(want ...query.SrchOption) func([]query.SrchOption) bool {
 	return func(got []query.SrchOption) bool {
 		q1 := query.NewSearch(want...)
@@ -87,6 +89,37 @@ func equalLoad(s1, s2 query.Search) bool {
 
 	for _, f := range s1.Load() {
 		if !slices.Contains(s2.Load(), f) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// --------------------------------------------------------------- Patch
+
+func PatchOptMatcherFunc(want ...query.PatchOption) func([]query.PatchOption) bool {
+	return func(got []query.PatchOption) bool {
+		q1 := query.NewPatch(want...)
+		q2 := query.NewPatch(got...)
+
+		return SrchOptMatcherFunc(q1.SearchOpts()...)(q2.SearchOpts()) &&
+			equalPatchFields(q1.Fields(), q2.Fields())
+	}
+}
+
+func equalPatchFields(pf1, pf2 query.PatchFields) bool {
+	if len(pf1) != len(pf2) {
+		return false
+	}
+
+	for k, v1 := range pf1 {
+		v2, ok := pf2[k]
+		if !ok {
+			return false
+		}
+
+		if v1.Operation() != v2.Operation() || !reflect.DeepEqual(v1.Value(), v2.Value()) {
 			return false
 		}
 	}

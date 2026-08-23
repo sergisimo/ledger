@@ -100,6 +100,14 @@ func AssertGetResponseOK() ResponseAssertion {
 	return AssertResponseStatus(http.StatusOK)
 }
 
+func AssertPatchResponseOK() ResponseAssertion {
+	return AssertResponseStatus(http.StatusOK)
+}
+
+func AssertDeleteResponseNoContent() ResponseAssertion {
+	return AssertResponseStatus(http.StatusNoContent)
+}
+
 func AssertResMatchingFile(fileDir, fileName string, updateGoldenFile bool) ResponseAssertion {
 	return func(t *testing.T, res *http.Response) {
 		t.Helper()
