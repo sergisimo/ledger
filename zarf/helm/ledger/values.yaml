@@ -1,0 +1,14 @@
+# Default values for ledger Helm chart
+
+container:
+  name: ledger
+  image:
+    repository: localhost/sergisimo/ledger
+    tag: "0.0.1"
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "100Mi"
+    limits:
+      cpu: "250m"
+      memory: "100Mi"
