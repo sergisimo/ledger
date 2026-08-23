@@ -18,7 +18,7 @@ type (
 	}
 
 	List[T Resource] interface {
-		Result() []T
+		Items() []T
 		TotalCollSize() uint
 	}
 
