@@ -8,15 +8,11 @@ import (
 	"net/http/pprof"
 
 	"github.com/arl/statsviz"
-	"github.com/sergisimo/ledger/internal/platform/logger"
+	"github.com/sergisimo/ledger/internal/platform/logging"
 	"go.uber.org/fx"
 )
 
-// Mux registers all the debug routes from the standard library into a new mux
-// bypassing the use of the DefaultServerMux. Using the DefaultServerMux would
-// be a security risk since a dependency could inject a handler into our service
-// without us knowing it.
-func DebugMux() *http.ServeMux {
+func debugMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -34,28 +30,21 @@ func DebugMux() *http.ServeMux {
 func Module(debugHost string) fx.Option {
 	return fx.Module(
 		"metrics",
-		fx.Provide(fx.Annotate(DebugMux, fx.ResultTags(`name:"debugMux"`))),
 		fx.Invoke(
-			fx.Annotate(
-				func(lc fx.Lifecycle, log *logger.Logger, mux *http.ServeMux) {
-					lc.Append(fx.Hook{
-						OnStart: func(ctx context.Context) error {
-							go func() {
-								log.Info(ctx, "startup", "status", "debug router started", "host", debugHost)
+			func(lc fx.Lifecycle, log logging.Logger) {
+				lc.Append(fx.Hook{
+					OnStart: func(ctx context.Context) error {
+						go func() {
+							log.Info(ctx, "debug router started on host %s", debugHost)
 
-								if err := http.ListenAndServe(debugHost, mux); err != nil {
-									log.Error(ctx, "shutdown", "status", "debug router closed", "host", debugHost, "msg", err)
-								}
-							}()
-							return nil
-						},
-						OnStop: func(ctx context.Context) error {
-							return nil
-						},
-					})
-				},
-				fx.ParamTags(``, ``, `name:"debugMux"`),
-			),
+							if err := http.ListenAndServe(debugHost, debugMux()); err != nil {
+								log.Error(ctx, "debug router failed to start: %v", err)
+							}
+						}()
+						return nil
+					},
+				})
+			},
 		),
 	)
 }

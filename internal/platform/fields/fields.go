@@ -18,6 +18,7 @@ const (
 	NameKind    Name = "kind"
 	NameClient  Name = "client"
 	NameConfig  Name = "config"
+	NameService Name = "service"
 )
 
 func (f Name) String() string {

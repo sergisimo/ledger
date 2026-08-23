@@ -7,7 +7,7 @@ import (
 
 	"github.com/biter777/countries"
 	"github.com/sergisimo/ledger/internal/platform/gateway/rest"
-	"github.com/sergisimo/ledger/internal/platform/logger"
+	"github.com/sergisimo/ledger/internal/platform/logging"
 	"github.com/sergisimo/ledger/internal/platform/query"
 	"github.com/sergisimo/ledger/internal/platform/resource"
 	"github.com/sergisimo/ledger/internal/platform/usecase"
@@ -44,10 +44,10 @@ const (
 // --------------------------------------------------------------- Usecase
 
 type accountProviderUsecase struct {
-	log *logger.Logger
+	log logging.Logger
 }
 
-func NewAccountProviderUsecase(log *logger.Logger) *accountProviderUsecase {
+func NewAccountProviderUsecase(log logging.Logger) *accountProviderUsecase {
 	return &accountProviderUsecase{
 		log: log,
 	}

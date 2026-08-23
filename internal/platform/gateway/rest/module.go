@@ -25,7 +25,7 @@ func Module(shutdownTimeout time.Duration) fx.Option {
 			),
 			fx.Annotate(
 				NewServer,
-				fx.ParamTags(``, fmt.Sprintf(`group:"%s"`, serverOptsTag)),
+				fx.ParamTags(fmt.Sprintf(`group:"%s"`, serverOptsTag)),
 			),
 		),
 		fx.Invoke(

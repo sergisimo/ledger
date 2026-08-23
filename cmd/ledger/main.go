@@ -12,7 +12,7 @@ import (
 
 	"github.com/sergisimo/ledger/internal/ledger"
 	"github.com/sergisimo/ledger/internal/platform/gateway/rest"
-	"github.com/sergisimo/ledger/internal/platform/logger"
+	"github.com/sergisimo/ledger/internal/platform/logging"
 	"github.com/sergisimo/ledger/internal/platform/metrics"
 	"github.com/sergisimo/ledger/internal/platform/tracing"
 	"go.uber.org/fx"
@@ -59,28 +59,27 @@ func main() {
 
 	// Dependency Injection
 	app := fx.New(
-		logger.Module(svcName, tracing.GetTraceID),
+		logging.Module(),
 		tracing.Module(svcName, tag, cfg.Trace.Address),
 		metrics.Module(cfg.Rest.DebugHost),
 		rest.Module(cfg.Rest.ShutdownTimeout),
 		ledger.Module(),
-		fx.Invoke(func(lc fx.Lifecycle, log *logger.Logger) {
+		fx.Invoke(func(lc fx.Lifecycle, log logging.Logger) {
 			lc.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {
-					// GOMAXPROCS
-					log.Info(ctx, "startup", "GOMAXPROCS", runtime.GOMAXPROCS(0))
-					log.Info(ctx, "startup", "version", tag)
-					log.Info(ctx, "trace", "jaeger", cfg.Trace.Address)
+					log.With("GOMAXPROCS", runtime.GOMAXPROCS(0)).
+						With("version", tag).
+						Info(ctx, "starting ledger service...")
 
 					out, err := conf.String(&cfg)
 					if err != nil {
 						return fmt.Errorf("generating config for output: %w", err)
 					}
-					log.Info(ctx, "startup", "config", out)
+					log.With("config", out).Info(ctx, "service configuration")
 					return nil
 				},
 				OnStop: func(ctx context.Context) error {
-					log.Info(ctx, "Stopping Ledger Service...")
+					log.Info(ctx, "stopping ledger service...")
 					return nil
 				},
 			})
