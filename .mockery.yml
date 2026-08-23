@@ -3,8 +3,6 @@ pkgname: '{{.SrcPackageName}}_test'
 filename: '{{ .InterfaceName | snakecase }}_mock_test.go'
 structname: '{{.InterfaceName}}'
 template: testify
-template-data:
-    unroll-variadic: true
 packages:
     github.com/sergisimo/ledger/internal/platform/usecase:
       config:

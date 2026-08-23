@@ -1,0 +1,9 @@
+{
+    "data": {
+        "type": "tests",
+        "boolean": true,
+        "str": "test string",
+        "number": 42,
+        "double": 3.14
+    }
+}

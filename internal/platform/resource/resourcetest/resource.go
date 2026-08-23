@@ -22,6 +22,21 @@ func AssertEqual(t *testing.T, want, got resource.Resource) {
 	assert.Equal(t, want.DeletedAt(), got.DeletedAt())
 }
 
+func Match(want resource.Resource) func(got resource.Resource) bool {
+	return func(got resource.Resource) bool {
+		if got == nil {
+			return want == nil
+		}
+
+		return got.ID() == want.ID() &&
+			got.Type() == want.Type() &&
+			got.CreatedAt().Equal(want.CreatedAt()) &&
+			got.UpdatedAt().Equal(want.UpdatedAt()) &&
+			((got.DeletedAt() == nil && want.DeletedAt() == nil) ||
+				(got.DeletedAt() != nil && want.DeletedAt() != nil && got.DeletedAt().Equal(*want.DeletedAt())))
+	}
+}
+
 // --------------------------------------------------------------- Stub
 
 type (
@@ -89,6 +104,15 @@ func WithUpdatedAt(updatedAt time.Time) resourceOption {
 func WithDeletedAt(deletedAt *time.Time) resourceOption {
 	return func(r *resourceStub) {
 		r.deletedAt = deletedAt
+	}
+}
+
+func ToCreateResource(kind resource.Type) resourceOption {
+	return func(r *resourceStub) {
+		r.id = ""
+		r.kind = kind
+		r.createdAt = time.Time{}
+		r.updatedAt = time.Time{}
 	}
 }
 

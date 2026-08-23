@@ -41,15 +41,13 @@ func (_m *Lister[R]) EXPECT() *Lister_Expecter[R] {
 
 // List provides a mock function for the type Lister
 func (_mock *Lister[R]) List(context1 context.Context, srchOptions ...query.SrchOption) (resource.List[R], error) {
-	// query.SrchOption
-	_va := make([]any, len(srchOptions))
-	for _i := range srchOptions {
-		_va[_i] = srchOptions[_i]
+	var tmpRet mock.Arguments
+	if len(srchOptions) > 0 {
+		tmpRet = _mock.Called(context1, srchOptions)
+	} else {
+		tmpRet = _mock.Called(context1)
 	}
-	var _ca []any
-	_ca = append(_ca, context1)
-	_ca = append(_ca, _va...)
-	ret := _mock.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for List")
@@ -95,11 +93,9 @@ func (_c *Lister_List_Call[R]) Run(run func(context1 context.Context, srchOption
 			arg0 = args[0].(context.Context)
 		}
 		var arg1 []query.SrchOption
-		variadicArgs := make([]query.SrchOption, len(args)-1)
-		for i, a := range args[1:] {
-			if a != nil {
-				variadicArgs[i] = a.(query.SrchOption)
-			}
+		var variadicArgs []query.SrchOption
+		if len(args) > 1 {
+			variadicArgs = args[1].([]query.SrchOption)
 		}
 		arg1 = variadicArgs
 		run(

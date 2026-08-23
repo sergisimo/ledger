@@ -1,0 +1,5 @@
+HTTP/1.1 500 Internal Server Error
+Connection: close
+Content-Type: application/json
+
+{"data":{"errors":[{"status":"500","detail":"assert.AnError general error for testing"}]}}

@@ -40,15 +40,13 @@ func (_m *Deleter) EXPECT() *Deleter_Expecter {
 
 // Delete provides a mock function for the type Deleter
 func (_mock *Deleter) Delete(context1 context.Context, deleteType query.DeleteType, srchOptions ...query.SrchOption) error {
-	// query.SrchOption
-	_va := make([]any, len(srchOptions))
-	for _i := range srchOptions {
-		_va[_i] = srchOptions[_i]
+	var tmpRet mock.Arguments
+	if len(srchOptions) > 0 {
+		tmpRet = _mock.Called(context1, deleteType, srchOptions)
+	} else {
+		tmpRet = _mock.Called(context1, deleteType)
 	}
-	var _ca []any
-	_ca = append(_ca, context1, deleteType)
-	_ca = append(_ca, _va...)
-	ret := _mock.Called(_ca...)
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for Delete")
@@ -88,11 +86,9 @@ func (_c *Deleter_Delete_Call) Run(run func(context1 context.Context, deleteType
 			arg1 = args[1].(query.DeleteType)
 		}
 		var arg2 []query.SrchOption
-		variadicArgs := make([]query.SrchOption, len(args)-2)
-		for i, a := range args[2:] {
-			if a != nil {
-				variadicArgs[i] = a.(query.SrchOption)
-			}
+		var variadicArgs []query.SrchOption
+		if len(args) > 2 {
+			variadicArgs = args[2].([]query.SrchOption)
 		}
 		arg2 = variadicArgs
 		run(
