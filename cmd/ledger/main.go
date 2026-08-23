@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/ardanlabs/conf/v3"
 
+	"github.com/sergisimo/ledger/internal/ledger"
+	"github.com/sergisimo/ledger/internal/platform/gateway/rest"
 	"github.com/sergisimo/ledger/internal/platform/logger"
 	"github.com/sergisimo/ledger/internal/platform/metrics"
 	"go.uber.org/fx"
@@ -22,8 +25,13 @@ func main() {
 	// Configuration
 	cfg := struct {
 		conf.Version
-		Web struct {
-			DebugHost string `conf:"default:0.0.0.0:8081"`
+		Rest struct {
+			ReadTimeout     time.Duration `conf:"default:5s,env:REST_READ_TIMEOUT"`
+			WriteTimeout    time.Duration `conf:"default:10s,env:REST_WRITE_TIMEOUT"`
+			IdleTimeout     time.Duration `conf:"default:120s,env:REST_IDLE_TIMEOUT"`
+			ShutdownTimeout time.Duration `conf:"default:20s,env:REST_SHUTDOWN_TIMEOUT"`
+			Address         string        `conf:"default:localhost:8080,env:REST_ADDRESS"`
+			DebugHost       string        `conf:"default:0.0.0.0:8081"`
 		}
 	}{
 		Version: conf.Version{
@@ -45,7 +53,9 @@ func main() {
 	// Dependency Injection
 	app := fx.New(
 		logger.Module(logger.LevelInfo, svcName, func(ctx context.Context) string { return "" }),
-		metrics.Module(cfg.Web.DebugHost),
+		metrics.Module(cfg.Rest.DebugHost),
+		rest.Module(cfg.Rest.ShutdownTimeout),
+		ledger.Module(),
 		fx.Invoke(func(lc fx.Lifecycle, log *logger.Logger) {
 			lc.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {

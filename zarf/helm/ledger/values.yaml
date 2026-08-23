@@ -17,3 +17,9 @@ container:
       containerPort: 8080
     - name: http-debug
       containerPort: 8081
+  env:
+    REST_ADDRESS: "localhost:8080"
+    REST_READ_TIMEOUT: "5s"
+    REST_WRITE_TIMEOUT: "10s"
+    REST_IDLE_TIMEOUT: "120s"
+    REST_SHUTDOWN_TIMEOUT: "20s"

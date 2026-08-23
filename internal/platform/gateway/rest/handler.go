@@ -100,14 +100,13 @@ func NewCreateHandler[R, DTO resource.Resource](
 // --------------------------------------------------------------- Helpers
 
 func encodeJSONResponse(w http.ResponseWriter, statusCode int, data any) {
-	err := json.NewEncoder(w).Encode(data)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
+
+	err := json.NewEncoder(w).Encode(data)
+	if err != nil {
+		encodeErrorResponse(w, http.StatusInternalServerError, err)
+	}
 }
 
 func encodeErrorResponse(w http.ResponseWriter, statusCode int, err error) {

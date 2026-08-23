@@ -1,6 +1,7 @@
 package query
 
 // --------------------------------------------------------------- Contract
+
 type DeleteType int
 
 const (
