@@ -7,6 +7,7 @@ import (
 
 	"github.com/biter777/countries"
 	"github.com/sergisimo/ledger/internal/platform/gateway/rest"
+	"github.com/sergisimo/ledger/internal/platform/logger"
 	"github.com/sergisimo/ledger/internal/platform/query"
 	"github.com/sergisimo/ledger/internal/platform/resource"
 	"github.com/sergisimo/ledger/internal/platform/usecase"
@@ -42,9 +43,19 @@ const (
 
 // --------------------------------------------------------------- Usecase
 
-type accountProviderUsecase struct{}
+type accountProviderUsecase struct {
+	log *logger.Logger
+}
+
+func NewAccountProviderUsecase(log *logger.Logger) *accountProviderUsecase {
+	return &accountProviderUsecase{
+		log: log,
+	}
+}
 
 func (u *accountProviderUsecase) Get(ctx context.Context, opts ...query.SrchOption) (AccountProvider, error) {
+	u.log.Info(ctx, "accountProviderUsecase.Get() called")
+
 	return &accountProviderRestDto{
 		RestDTO:   resource.RestDTO{RID: "1", RType: ResourceTypeAccountProvider, RCreatedAt: time.Now(), RUpdatedAt: time.Now()},
 		APName:    "Bank of America",
@@ -87,10 +98,9 @@ type accountProviderRestCtrl struct {
 	get http.Handler
 }
 
-func NewAccountProviderRestCtrl() *accountProviderRestCtrl {
-	var accountProviderUsecase AccountProviderUsecase = &accountProviderUsecase{}
+func NewAccountProviderRestCtrl(ucase AccountProviderUsecase) *accountProviderRestCtrl {
 	return &accountProviderRestCtrl{
-		get: rest.NewGetHandler(accountProviderUsecase, accountProviderToRestDTO),
+		get: rest.NewGetHandler(ucase, accountProviderToRestDTO),
 	}
 }
 

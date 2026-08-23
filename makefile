@@ -31,6 +31,10 @@ docker-images:
 	docker pull docker.io/$(ALPINE)
 	docker pull docker.io/$(KIND)
 
+# Tests
+test:
+	go test ./... -cover
+
 # Building containers
 build: build-ledger
 
@@ -43,7 +47,11 @@ build-ledger:
 		.
 
 # Running locally
-local: local-cluster-up build local-load-images local-apply local-logs
+local: local-cluster-up build local-load-images local-deploy-jaeger local-apply
+
+local-refresh: build local-load-images
+	kubectl rollout restart deployment/$(LEDGER_APP) -n $(NAMESPACE)
+	kubectl wait pods -n $(NAMESPACE) --selector app=$(LEDGER_APP) --timeout=120s --for=condition=Ready
 
 local-cluster-up:
 	kind get clusters | grep -q $(KIND_CLUSTER) || \
@@ -63,13 +71,20 @@ local-load-images:
 	kind load docker-image $(LEDGER_IMAGE) --name $(KIND_CLUSTER)
 	wait;
 
+local-deploy-jaeger:
+	helm template jaeger zarf/helm/jaeger -n $(NAMESPACE) -f zarf/helm/jaeger/values.yaml | kubectl apply -f -
+	kubectl wait pods -n $(NAMESPACE) --selector app=jaeger --timeout=120s --for=condition=Ready
+
 local-apply:
-	helm template $(LEDGER_APP) zarf/helm/ledger -n $(NAMESPACE) -f zarf/helm/ledger/values.yaml -f zarf/helm/ledger/values/dev.yaml | kubectl apply -f -
+	helm template $(LEDGER_APP) zarf/helm/ledger -n $(NAMESPACE) -f zarf/helm/ledger/values.yaml | kubectl apply -f -
 	kubectl wait pods -n $(NAMESPACE) --selector app=$(LEDGER_APP) --timeout=120s --for=condition=Ready
 
 # Logs
 local-logs:
 	kubectl logs -n $(NAMESPACE) --selector app=$(LEDGER_APP) --follow
+
+jaeger-logs:
+	kubectl logs -n $(NAMESPACE) --selector app=jaeger --follow
 
 # Port forwarding
 forward-debug:
@@ -77,6 +92,9 @@ forward-debug:
 
 forward-http:
 	kubectl port-forward -n $(NAMESPACE) svc/$(LEDGER_APP) 8080:8080
+
+forward-jaeger-ui:
+	kubectl port-forward -n $(NAMESPACE) svc/jaeger 16686:16686
 
 # Modules support
 tidy:

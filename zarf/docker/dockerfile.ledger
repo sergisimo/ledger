@@ -1,4 +1,3 @@
-# Build the Go Binary.
 FROM golang:1.26 AS build_ledger
 ENV CGO_ENABLED=0
 ARG BUILD_TAG
@@ -6,10 +5,13 @@ ARG BUILD_TAG
 RUN mkdir /service
 COPY . /service
 WORKDIR /service
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 WORKDIR /service/cmd/ledger
-RUN go build -ldflags "-X main.tag=${BUILD_TAG}" -o ledger
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go build -ldflags "-X main.tag=${BUILD_TAG}" -o ledger
 
 FROM alpine:3.23
 ARG BUILD_DATE

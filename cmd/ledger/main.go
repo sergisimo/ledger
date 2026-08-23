@@ -14,6 +14,7 @@ import (
 	"github.com/sergisimo/ledger/internal/platform/gateway/rest"
 	"github.com/sergisimo/ledger/internal/platform/logger"
 	"github.com/sergisimo/ledger/internal/platform/metrics"
+	"github.com/sergisimo/ledger/internal/platform/tracing"
 	"go.uber.org/fx"
 )
 
@@ -33,6 +34,12 @@ func main() {
 			Address         string        `conf:"default:localhost:8080,env:REST_ADDRESS"`
 			DebugHost       string        `conf:"default:0.0.0.0:8081"`
 		}
+		Trace struct {
+			Address string `conf:"default:localhost:4317,env:TRACE_ADDRESS"`
+		}
+		Log struct {
+			Level string `conf:"default:INFO,env:LOG_LEVEL"`
+		}
 	}{
 		Version: conf.Version{
 			Build: tag,
@@ -40,7 +47,7 @@ func main() {
 		},
 	}
 
-	help, err := conf.Parse(svcName, &cfg)
+	help, err := conf.Parse("", &cfg)
 	if err != nil {
 		if errors.Is(err, conf.ErrHelpWanted) {
 			fmt.Println(help)
@@ -52,7 +59,8 @@ func main() {
 
 	// Dependency Injection
 	app := fx.New(
-		logger.Module(logger.LevelInfo, svcName, func(ctx context.Context) string { return "" }),
+		logger.Module(svcName, tracing.GetTraceID),
+		tracing.Module(svcName, tag, cfg.Trace.Address),
 		metrics.Module(cfg.Rest.DebugHost),
 		rest.Module(cfg.Rest.ShutdownTimeout),
 		ledger.Module(),
@@ -62,6 +70,7 @@ func main() {
 					// GOMAXPROCS
 					log.Info(ctx, "startup", "GOMAXPROCS", runtime.GOMAXPROCS(0))
 					log.Info(ctx, "startup", "version", tag)
+					log.Info(ctx, "trace", "jaeger", cfg.Trace.Address)
 
 					out, err := conf.String(&cfg)
 					if err != nil {

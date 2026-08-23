@@ -10,6 +10,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // TraceIDFn represents a function that can return the trace id from
@@ -129,11 +132,14 @@ func (log *Logger) write(ctx context.Context, level Level, caller int, msg strin
 	r := slog.NewRecord(time.Now(), slogLevel, msg, pcs[0])
 
 	if log.traceIDFn != nil {
-		args = append(args, "trace_id", log.traceIDFn(ctx))
+		if traceID := log.traceIDFn(ctx); traceID != "" {
+			args = append(args, "trace_id", traceID)
+		}
 	}
 	r.Add(args...)
 
 	log.handler.Handle(ctx, r)
+	addSpanEvent(ctx, r)
 }
 
 func new(w io.Writer, minLevel Level, serviceName string, traceIDFn TraceIDFn, events Events) *Logger {
@@ -172,5 +178,65 @@ func new(w io.Writer, minLevel Level, serviceName string, traceIDFn TraceIDFn, e
 		discard:   w == io.Discard,
 		handler:   handler,
 		traceIDFn: traceIDFn,
+	}
+}
+
+func addSpanEvent(ctx context.Context, r slog.Record) {
+	span := trace.SpanFromContext(ctx)
+	if !span.SpanContext().IsValid() || !span.IsRecording() {
+		return
+	}
+
+	attrs := []attribute.KeyValue{
+		attribute.String("log.message", r.Message),
+		attribute.String("log.severity", r.Level.String()),
+	}
+
+	r.Attrs(func(attr slog.Attr) bool {
+		attrs = append(attrs, slogAttrToAttributes("", attr)...)
+		return true
+	})
+
+	span.AddEvent("log", trace.WithAttributes(attrs...))
+}
+
+func slogAttrToAttributes(prefix string, attr slog.Attr) []attribute.KeyValue {
+	value := attr.Value.Resolve()
+	key := attr.Key
+	if prefix != "" {
+		key = prefix + "." + key
+	}
+
+	if value.Kind() == slog.KindGroup {
+		group := value.Group()
+		attrs := make([]attribute.KeyValue, 0, len(group))
+		for _, groupAttr := range group {
+			attrs = append(attrs, slogAttrToAttributes(key, groupAttr)...)
+		}
+
+		return attrs
+	}
+
+	return []attribute.KeyValue{slogValueToAttribute(key, value)}
+}
+
+func slogValueToAttribute(key string, value slog.Value) attribute.KeyValue {
+	switch value.Kind() {
+	case slog.KindBool:
+		return attribute.Bool(key, value.Bool())
+	case slog.KindDuration:
+		return attribute.String(key, value.Duration().String())
+	case slog.KindFloat64:
+		return attribute.Float64(key, value.Float64())
+	case slog.KindInt64:
+		return attribute.Int64(key, value.Int64())
+	case slog.KindString:
+		return attribute.String(key, value.String())
+	case slog.KindTime:
+		return attribute.String(key, value.Time().Format(time.RFC3339Nano))
+	case slog.KindUint64:
+		return attribute.String(key, fmt.Sprint(value.Uint64()))
+	default:
+		return attribute.String(key, fmt.Sprint(value.Any()))
 	}
 }
