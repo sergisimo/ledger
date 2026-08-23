@@ -1,0 +1,5 @@
+HTTP/1.1 400 Bad Request
+Connection: close
+Content-Type: application/json
+
+{"data":{"errors":[{"status":"400","detail":"error in field str: cannot be an empty string; err: value is not allowed to be set with a zero val"}]}}

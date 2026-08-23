@@ -1,0 +1,9 @@
+{
+    "data": {
+        "type": "tests",
+        "boolean": false,
+        "str": "patched string",
+        "number": 99,
+        "double": 7.5
+    }
+}

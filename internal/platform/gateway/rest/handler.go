@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/sergisimo/ledger/internal/platform/fields"
+	"github.com/sergisimo/ledger/internal/platform/filter"
+	"github.com/sergisimo/ledger/internal/platform/query"
 	"github.com/sergisimo/ledger/internal/platform/resource"
 	"github.com/sergisimo/ledger/internal/platform/usecase"
 	"github.com/sergisimo/ledger/internal/platform/utils/sliceutils"
@@ -159,5 +162,88 @@ func NewCreateHandler[R, DTO resource.Resource](
 		}
 
 		cfg.encoder(w, cfg.status, toDTO(res))
+	})
+}
+
+func patchHandlerDefaultOpts() []HandlerOpt {
+	return []HandlerOpt{
+		WithStatus(http.StatusOK),
+		WithEncoder(encodeSingleJSONResponse),
+		WithErrorEncoder(encodeErrorResponse),
+	}
+}
+
+func NewPatchHandler[R, RDTO, DTO resource.Resource](
+	updater usecase.Patcher[R],
+	reqToPatchOpts func(req RDTO) ([]query.PatchOption, error),
+	toDTO func(R) DTO,
+	opts ...HandlerOpt,
+) http.Handler {
+	varutils.MustImplement[R, DTO]()
+
+	cfg := &handlerConfig{}
+	for _, opt := range append(patchHandlerDefaultOpts(), opts...) {
+		opt(cfg)
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		patchOpts := []query.PatchOption{
+			query.PatchSearchOpts(query.FilterBy(fields.NameID, filter.OpEq, r.PathValue("id"))),
+		}
+
+		var dto struct {
+			Data RDTO `json:"data"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+			cfg.errorEncoder(w, http.StatusBadRequest, err)
+			return
+		}
+
+		reqOpts, err := reqToPatchOpts(dto.Data)
+		if err != nil {
+			cfg.errorEncoder(w, http.StatusBadRequest, err)
+			return
+		}
+		patchOpts = append(patchOpts, reqOpts...)
+
+		res, err := updater.Patch(r.Context(), patchOpts...)
+		if err != nil {
+			cfg.errorEncoder(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		cfg.encoder(w, cfg.status, toDTO(res))
+	})
+}
+
+func deleteHandlerDefaultOpts() []HandlerOpt {
+	return []HandlerOpt{
+		WithStatus(http.StatusNoContent),
+		WithErrorEncoder(encodeErrorResponse),
+	}
+}
+
+func NewDeleteHandler(
+	deleter usecase.Deleter,
+	delType query.DeleteType,
+	opts ...HandlerOpt,
+) http.Handler {
+	cfg := &handlerConfig{}
+	for _, opt := range append(deleteHandlerDefaultOpts(), opts...) {
+		opt(cfg)
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srchOpts := []query.SrchOption{
+			query.FilterBy(fields.NameID, filter.OpEq, r.PathValue("id")),
+		}
+
+		err := deleter.Delete(r.Context(), delType, srchOpts...)
+		if err != nil {
+			cfg.errorEncoder(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		w.WriteHeader(cfg.status)
 	})
 }

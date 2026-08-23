@@ -1,0 +1,9 @@
+{
+    "data": {
+        "type": "tests",
+        "boolean": false,
+        "str": "",
+        "number": 99,
+        "double": 7.5
+    }
+}

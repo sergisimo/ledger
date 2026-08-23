@@ -17,7 +17,7 @@ func TestNewPatchQuery(t *testing.T) {
 		field3 fields.Name = "field3"
 	)
 
-	pq := query.NewPatchQuery(
+	pq := query.NewPatch(
 		query.Patch(field1, "value1"),
 		query.Patch(field2, 100, query.PatchFieldAdd),
 		query.Patch(field3, true, query.PatchFieldRemove),
@@ -88,12 +88,12 @@ func TestNewPatchQuery(t *testing.T) {
 func TestPatchOptions(t *testing.T) {
 	const field1 fields.Name = "field1"
 
-	pq1 := query.NewPatchQuery(query.Patch(field1, "val1"))
+	pq1 := query.NewPatch(query.Patch(field1, "val1"))
 
-	pq2 := query.NewPatchQuery(query.WithPatchQuery(pq1))
+	pq2 := query.NewPatch(query.WithPatchQuery(pq1))
 	assert.Equal(t, pq1.Fields(), pq2.Fields())
 
-	pq4 := query.NewPatchQuery(query.WithPatchFields(query.PatchFields{field1: nil}))
+	pq4 := query.NewPatch(query.WithPatchFields(query.PatchFields{field1: nil}))
 	assert.True(t, pq4.Fields().Exists(field1))
 }
 
