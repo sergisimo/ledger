@@ -42,7 +42,7 @@ func TestModule(t *testing.T) {
 		url := fmt.Sprintf("http://%s%s", debugHost, endpoint)
 		resp, err := http.Get(url)
 		require.NoError(t, err, fmt.Sprintf("failed to GET %s", endpoint))
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		assert.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("endpoint %s should return 200", endpoint))
 	}
 

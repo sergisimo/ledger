@@ -5,7 +5,6 @@
     ":semanticCommitTypeAll(chore)",
     "schedule:weekends"
   ],
-  "ignorePaths": [".github/**"],
   "dependencyDashboard": true,
   "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
   "baseBranches": ["main"],

@@ -21,6 +21,7 @@ func TestNewLogger(t *testing.T) {
 
 	logger, err := logging.NewLogger()
 	require.ErrorIs(t, err, fields.NewErrInvalidEmptyString(fields.NameService.Merge(fields.NameName)))
+	require.Nil(t, logger)
 
 	handler := slog.NewTextHandler(buf, &slog.HandlerOptions{Level: slog.LevelDebug})
 	logger, err = logging.NewLogger(

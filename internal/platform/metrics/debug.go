@@ -22,7 +22,7 @@ func debugMux() *http.ServeMux {
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	mux.Handle("/debug/vars/", expvar.Handler())
 
-	statsviz.Register(mux)
+	_ = statsviz.Register(mux)
 
 	return mux
 }

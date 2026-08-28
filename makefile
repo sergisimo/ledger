@@ -16,9 +16,6 @@ init: go-tools asdf-tools docker-images
 
 go-tools:
 	go install github.com/rakyll/hey@latest
-	go install honnef.co/go/tools/cmd/staticcheck@latest
-	go install golang.org/x/vuln/cmd/govulncheck@latest
-	go install golang.org/x/tools/cmd/goimports@latest
 
 asdf-tools:
 	asdf plugin add kind
@@ -32,6 +29,9 @@ docker-images:
 	docker pull docker.io/$(KIND)
 
 # Tests
+lint:
+	golangci-lint run ./...
+
 test:
 	go test ./... -cover
 

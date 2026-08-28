@@ -44,7 +44,7 @@ func Module(shutdownTimeout time.Duration) fx.Option {
 						defer cancel()
 
 						if err := s.Shutdown(ctx); err != nil {
-							s.Close()
+							_ = s.Close()
 							return err
 						}
 						return nil

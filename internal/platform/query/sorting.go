@@ -75,7 +75,7 @@ func (sp *sortingParams) Keys() []fields.Name {
 func (sp *sortingParams) String() string {
 	strBuilder := strings.Builder{}
 	for i, key := range sp.keys {
-		strBuilder.WriteString(fmt.Sprintf("%s=%s", key, sp.fields[key]))
+		fmt.Fprintf(&strBuilder, "%s=%s", key, sp.fields[key])
 		if i < len(sp.keys)-1 {
 			strBuilder.WriteString(", ")
 		}

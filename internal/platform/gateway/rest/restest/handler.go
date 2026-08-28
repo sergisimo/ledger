@@ -73,7 +73,7 @@ func executeTest(t *testing.T, test *HandlerTest) {
 	rr := httptest.NewRecorder()
 	test.handler.ServeHTTP(rr, test.req)
 	res := rr.Result()
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	for _, assertion := range test.assertions {
 		assertion(t, res)
@@ -112,7 +112,7 @@ func AssertResMatchingFile(fileDir, fileName string, updateGoldenFile bool) Resp
 	return func(t *testing.T, res *http.Response) {
 		t.Helper()
 
-		defer res.Body.Close()
+		defer func() { _ = res.Body.Close() }()
 		resDump, err := httputil.DumpResponse(res, true)
 		require.NoError(t, err)
 

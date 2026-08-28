@@ -61,7 +61,7 @@ func (qf Filters[T]) String() string {
 	})
 
 	for i, filter := range filters {
-		strBuilder.WriteString(fmt.Sprintf("%s %s %v", filter.Name(), filter.Operator(), filter.Value()))
+		fmt.Fprintf(&strBuilder, "%s %s %v", filter.Name(), filter.Operator(), filter.Value())
 		if i < len(filters)-1 {
 			strBuilder.WriteString(", ")
 		}
