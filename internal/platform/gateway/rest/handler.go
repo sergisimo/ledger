@@ -188,7 +188,7 @@ func NewPatchHandler[R, RDTO, DTO resource.Resource](
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		patchOpts := []query.PatchOption{
-			query.PatchSearchOpts(query.FilterBy(fields.NameID, filter.OpEq, r.PathValue("id"))),
+			query.PatchSearchOpts(query.Filter(query.Where(fields.NameID, filter.OpEq, r.PathValue("id")))),
 		}
 
 		var dto struct {
@@ -235,7 +235,7 @@ func NewDeleteHandler(
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		srchOpts := []query.SrchOption{
-			query.FilterBy(fields.NameID, filter.OpEq, r.PathValue("id")),
+			query.Filter(query.Where(fields.NameID, filter.OpEq, r.PathValue("id"))),
 		}
 
 		err := deleter.Delete(r.Context(), delType, srchOpts...)

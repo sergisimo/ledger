@@ -2,10 +2,10 @@ package rest
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -14,26 +14,40 @@ import (
 	"github.com/sergisimo/ledger/internal/platform/query"
 )
 
+const (
+	fieldNameAnd fields.Name = "and"
+	fieldNameOr  fields.Name = "or"
+)
+
 var (
-	ErrInvalidFilterFormat = errors.New("filter format should be filter[field][operator]")
+	ErrInvalidFilterFormat = errors.New("filter format should be a JSON condition tree")
 	ErrInvalidOperator     = errors.New("invalid operator")
 
 	//nolint:gochecknoglobals // map is used in every GET request with filters, it's more efficient to keep it global
 	Operators = map[string]filter.Operator{
-		"eq":       filter.OpEq,
-		"ne":       filter.OpNEq,
-		"gt":       filter.OpGT,
-		"gte":      filter.OpGTEq,
-		"lt":       filter.OpLT,
-		"lte":      filter.OpLTEq,
-		"in":       filter.OpIn,
-		"not-in":   filter.OpNotIn,
-		"like":     filter.OpLike,
-		"btw":      filter.OpBetween,
-		"any":      filter.OpContains,
-		"not-any":  filter.OpNotContains,
-		"any-like": filter.OpContainsLike,
-		"is":       filter.OpIs,
+		"eq":           filter.OpEq,
+		"ne":           filter.OpNEq,
+		"neq":          filter.OpNEq,
+		"gt":           filter.OpGT,
+		"gte":          filter.OpGTEq,
+		"gteq":         filter.OpGTEq,
+		"lt":           filter.OpLT,
+		"lte":          filter.OpLTEq,
+		"lteq":         filter.OpLTEq,
+		"in":           filter.OpIn,
+		"not-in":       filter.OpNotIn,
+		"notin":        filter.OpNotIn,
+		"like":         filter.OpLike,
+		"btw":          filter.OpBetween,
+		"between":      filter.OpBetween,
+		"any":          filter.OpContains,
+		"contains":     filter.OpContains,
+		"not-any":      filter.OpNotContains,
+		"notcontains":  filter.OpNotContains,
+		"any-like":     filter.OpContainsLike,
+		"containslike": filter.OpContainsLike,
+		"is":           filter.OpIs,
+		"isnot":        filter.OpIsNot,
 	}
 )
 
@@ -48,13 +62,17 @@ func decodeGetReq(_ context.Context, req *http.Request) ([]query.SrchOption, err
 		return nil, err
 	}
 
-	return append(opts, query.FilterBy(fields.NameID, filter.OpEq, id)), nil
+	return append(opts, query.Filter(query.Where(fields.NameID, filter.OpEq, id))), nil
 }
 
 func parseURLSrchOpts(uri *url.URL) ([]query.SrchOption, error) {
-	opts, err := searchFromURL(uri)
+	var opts []query.SrchOption
+	srch, err := searchFromURL(uri)
 	if err != nil {
 		return nil, err
+	}
+	if srch != nil {
+		opts = append(opts, srch)
 	}
 
 	pag, err := paginationFromURL(uri)
@@ -76,36 +94,87 @@ func parseURLSrchOpts(uri *url.URL) ([]query.SrchOption, error) {
 	return opts, nil
 }
 
-func searchFromURL(uri *url.URL) ([]query.SrchOption, error) {
-	opts := []query.SrchOption{}
-	for key, values := range uri.Query() {
-		if strings.Contains(key, "filter") {
-			fName, op, err := parseFilter(key)
-			if err != nil {
-				return nil, err
+func searchFromURL(uri *url.URL) (query.SrchOption, error) {
+	filterValue := uri.Query().Get(string(filter.FieldNameFilter))
+	if filterValue == "" {
+		return nil, nil
+	}
+
+	filters, err := parseFilterTree([]byte(filterValue))
+	if err != nil {
+		return nil, err
+	}
+
+	return query.Filter(filters), nil
+}
+
+func parseFilterTree(data []byte) (query.Filters, error) {
+	var condition map[string]any
+	if err := json.Unmarshal(data, &condition); err != nil {
+		return query.Filters{}, fields.NewErrWithFieldName(query.FieldNameFilters, ErrInvalidFilterFormat)
+	}
+	return parseFilterCondition(condition)
+}
+
+func parseFilterCondition(condition map[string]any) (query.Filters, error) {
+	if len(condition) != 1 {
+		return query.Filters{}, fields.NewErrWithFieldName(query.FieldNameFilters, ErrInvalidFilterFormat)
+	}
+
+	for key, value := range condition {
+		if key == string(fieldNameAnd) || key == string(fieldNameOr) {
+			children, ok := value.([]any)
+			if !ok || len(children) == 0 {
+				return query.Filters{}, fields.NewErrWithFieldName(query.FieldNameFilters, ErrInvalidFilterFormat)
 			}
-			opts = append(opts, query.FilterBy(fName, op, parseValue(op, values)))
+
+			parsed := make([]query.Filters, 0, len(children))
+			for _, child := range children {
+				childCondition, ok := child.(map[string]any)
+				if !ok {
+					return query.Filters{}, fields.NewErrWithFieldName(query.FieldNameFilters, ErrInvalidFilterFormat)
+				}
+
+				parsedChild, err := parseFilterCondition(childCondition)
+				if err != nil {
+					return query.Filters{}, err
+				}
+				parsed = append(parsed, parsedChild)
+			}
+			if key == string(fieldNameAnd) {
+				return query.And(parsed...), nil
+			}
+			return query.Or(parsed...), nil
+		}
+
+		operators, ok := value.(map[string]any)
+		if !ok || len(operators) != 1 {
+			return query.Filters{}, fields.NewErrWithFieldName(fields.Name(key), ErrInvalidFilterFormat)
+		}
+		for operator, rawValue := range operators {
+			op := parseOperator(operator)
+			if op == filter.OpUndefined {
+				return query.Filters{}, fields.NewErrWithFieldName(fields.Name(key), ErrInvalidOperator)
+			}
+			parsedValue := rawValue
+			if values, ok := rawValue.([]any); ok {
+				stringsValues := make([]string, len(values))
+				for index, value := range values {
+					stringValue, ok := value.(string)
+					if !ok {
+						break
+					}
+					stringsValues[index] = stringValue
+				}
+				if len(stringsValues) == len(values) {
+					parsedValue = stringsValues
+				}
+			}
+			return query.Where(fields.Name(key), op, parsedValue), nil
 		}
 	}
 
-	return opts, nil
-}
-
-func parseFilter(filterKey string) (fields.Name, filter.Operator, error) {
-	const filterSplits = 3
-
-	split := strings.Split(filterKey, "[")
-	if len(split) != filterSplits {
-		return "", filter.OpUndefined, fields.NewErrWithFieldName(fields.Name(filterKey), ErrInvalidFilterFormat)
-	}
-
-	fName := strings.ReplaceAll(split[1], "]", "")
-	op := parseOperator(strings.ReplaceAll(split[2], "]", ""))
-	if op == filter.OpUndefined {
-		return "", filter.OpUndefined, fields.NewErrWithFieldName(fields.Name(fName), ErrInvalidOperator)
-	}
-
-	return fields.Name(fName), op, nil
+	return query.Filters{}, fields.NewErrWithFieldName(query.FieldNameFilters, ErrInvalidFilterFormat)
 }
 
 func parseOperator(val string) filter.Operator {
@@ -114,33 +183,6 @@ func parseOperator(val string) filter.Operator {
 		return filter.OpUndefined
 	}
 	return v
-}
-
-func parseValue(op filter.Operator, val []string) any {
-	if len(val) == 1 {
-		if val[0] == "null" {
-			return nil
-		}
-		match, err := regexp.MatchString("^(?i)(true|false)$", val[0])
-		if err != nil {
-			return val[0]
-		}
-		if match {
-			if b, err := strconv.ParseBool(val[0]); err == nil {
-				return b
-			}
-		}
-		if strings.Contains(val[0], ",") {
-			return strings.Split(val[0], ",")
-		} else if op == filter.OpIn || op == filter.OpContainsLike {
-			if val[0] == "" {
-				return []string{}
-			}
-			return []string{val[0]}
-		}
-		return val[0]
-	}
-	return val
 }
 
 func paginationFromURL(uri *url.URL) (opt query.SrchOption, err error) {

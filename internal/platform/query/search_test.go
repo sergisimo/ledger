@@ -18,8 +18,12 @@ func TestNewSearch(t *testing.T) {
 	)
 
 	s1 := query.NewSearch(
-		query.FilterBy(field1, filter.OpEq, "value1"),
-		query.FilterBy(field2, filter.OpGT, 100),
+		query.Filter(
+			query.And(
+				query.Where(field1, filter.OpEq, "value1"),
+				query.Where(field2, filter.OpGT, 100),
+			),
+		),
 		query.SortBy(field1, query.SortAsc),
 		query.SortBy(field3, query.SortDesc),
 		query.Pagination(10, 20),
@@ -28,21 +32,9 @@ func TestNewSearch(t *testing.T) {
 	require.NotNil(t, s1)
 
 	filters := s1.Filters()
-	assert.Len(t, filters, 2)
 	assert.True(t, filters.Exists(field1))
 	assert.True(t, filters.Exists(field2))
-	assert.Equal(t, filter.OpEq, filters.Get(field1).Operator())
-	assert.Equal(t, "value1", filters.Get(field1).Value())
-	assert.Equal(t, filter.OpGT, filters.Get(field2).Operator())
-	assert.Equal(t, 100, filters.Get(field2).Value())
-	assert.Equal(t, "field1 eq value1, field2 gt 100", filters.String())
-	filters.Delete(field2)
-	assert.Len(t, filters, 1)
-	assert.False(t, filters.Exists(field2))
-	filters.Rename(field1, field3)
-	assert.Len(t, filters, 1)
-	assert.False(t, filters.Exists(field1))
-	assert.True(t, filters.Exists(field3))
+	assert.Equal(t, "field1 eq value1 AND field2 gt 100", filters.String())
 
 	sorting := s1.Sorting()
 	require.NotNil(t, sorting)

@@ -30,7 +30,10 @@ docker-images:
 
 # Tests
 lint:
-	golangci-lint run ./...
+	go tool golangci-lint run ./...
+
+mocks:
+	go tool mockery
 
 test:
 	go test ./... -cover

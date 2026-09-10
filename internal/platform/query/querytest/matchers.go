@@ -21,18 +21,26 @@ func SrchOptMatcherFunc(want ...query.SrchOption) func([]query.SrchOption) bool 
 	}
 }
 
-func equalFilters(f1, f2 query.Filters[any]) bool {
-	if len(f1) != len(f2) {
+func equalFilters(f1, f2 query.Filters) bool {
+	s1 := slices.Collect(f1.Traverse())
+	s2 := slices.Collect(f2.Traverse())
+
+	if len(s1) != len(s2) {
 		return false
 	}
 
-	for k, v1 := range f1 {
-		v2, ok := f2[k]
-		if !ok {
+	for i, n1 := range s1 {
+		n2 := s2[i]
+		if n1.Op != n2.Op {
 			return false
 		}
-
-		if v1.Operator() != v2.Operator() || !reflect.DeepEqual(v1.Value(), v2.Value()) {
+		if n1.Filter == nil {
+			if n2.Filter != nil {
+				return false
+			}
+			continue
+		}
+		if n1.Filter.Name() != n2.Filter.Name() || n1.Filter.Operator() != n2.Filter.Operator() || !reflect.DeepEqual(n1.Filter.Value(), n2.Filter.Value()) {
 			return false
 		}
 	}

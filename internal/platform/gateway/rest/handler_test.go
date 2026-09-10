@@ -134,7 +134,7 @@ type handlerDeps struct {
 }
 
 func (d *handlerDeps) expectGet(id string, entity testEntity, err error) {
-	matcher := mock.MatchedBy(querytest.SrchOptMatcherFunc(query.FilterBy(fields.NameID, filter.OpEq, id)))
+	matcher := mock.MatchedBy(querytest.SrchOptMatcherFunc(query.Filter(query.Where(fields.NameID, filter.OpEq, id))))
 	d.ucase.Getter.EXPECT().Get(mock.Anything, matcher).Return(entity, err)
 }
 
@@ -149,14 +149,14 @@ func (d *handlerDeps) expectCreate(toCreate, created testEntity, err error) {
 }
 
 func (d *handlerDeps) expectPatch(id string, opts []query.PatchOption, entity testEntity, err error) {
-	pOpts := []query.PatchOption{query.PatchSearchOpts(query.FilterBy(fields.NameID, filter.OpEq, id))}
+	pOpts := []query.PatchOption{query.PatchSearchOpts(query.Filter(query.Where(fields.NameID, filter.OpEq, id)))}
 	opts = append(pOpts, opts...)
 	matcher := mock.MatchedBy(querytest.PatchOptMatcherFunc(opts...))
 	d.ucase.Patcher.EXPECT().Patch(mock.Anything, matcher).Return(entity, err)
 }
 
 func (d *handlerDeps) expectDelete(id string, delType query.DeleteType, err error) {
-	matcher := mock.MatchedBy(querytest.SrchOptMatcherFunc(query.FilterBy(fields.NameID, filter.OpEq, id)))
+	matcher := mock.MatchedBy(querytest.SrchOptMatcherFunc(query.Filter(query.Where(fields.NameID, filter.OpEq, id))))
 	d.ucase.Deleter.EXPECT().Delete(mock.Anything, delType, matcher).Return(err)
 }
 
@@ -202,7 +202,7 @@ func TestNewGetHandler(t *testing.T) {
 			name: "not found",
 			id:   "4321",
 			mock: func(deps *handlerDeps) {
-				qry := query.NewSearch(query.FilterBy(fields.NameID, filter.OpEq, "4321"))
+				qry := query.NewSearch(query.Filter(query.Where(fields.NameID, filter.OpEq, "4321")))
 				err := resource.NewErrorNotFound(resourceTypeTest, qry.Filters().String())
 				deps.expectGet("4321", nil, err)
 			},
@@ -265,7 +265,7 @@ func TestNewListHandler(t *testing.T) {
 		listEmpty     = resource.NewList([]testEntity{}, 0)
 		listWithItems = resource.NewList([]testEntity{entity1, entity2}, 2)
 
-		qryOpts = []query.SrchOption{query.FilterBy("str", filter.OpEq, "hello")}
+		qryOpts = []query.SrchOption{query.Filter(query.Where("str", filter.OpEq, "hello"))}
 	)
 
 	tests := []struct {
@@ -280,7 +280,7 @@ func TestNewListHandler(t *testing.T) {
 				deps.expectList(qryOpts, listEmpty, nil)
 			},
 			reqOpts: []restest.RequestOption{
-				restest.RequestWithQueryParam("filter[str][eq]", "hello"),
+				restest.RequestWithQueryParam("filter", `{"str":{"eq":"hello"}}`),
 			},
 			assertions: []restest.ResponseAssertion{
 				restest.AssertListResponseOK(),
@@ -293,7 +293,7 @@ func TestNewListHandler(t *testing.T) {
 				deps.expectList(qryOpts, listWithItems, nil)
 			},
 			reqOpts: []restest.RequestOption{
-				restest.RequestWithQueryParam("filter[str][eq]", "hello"),
+				restest.RequestWithQueryParam("filter", `{"str":{"eq":"hello"}}`),
 			},
 			assertions: []restest.ResponseAssertion{
 				restest.AssertListResponseOK(),
@@ -306,7 +306,7 @@ func TestNewListHandler(t *testing.T) {
 				deps.expectList(qryOpts, nil, assert.AnError)
 			},
 			reqOpts: []restest.RequestOption{
-				restest.RequestWithQueryParam("filter[str][eq]", "hello"),
+				restest.RequestWithQueryParam("filter", `{"str":{"eq":"hello"}}`),
 			},
 			assertions: []restest.ResponseAssertion{
 				restest.AssertResponseStatus(http.StatusInternalServerError),
@@ -314,23 +314,43 @@ func TestNewListHandler(t *testing.T) {
 			},
 		},
 		{
-			name: "filters with various operators and value types",
+			name: "nested and or filters",
 			mock: func(deps *handlerDeps) {
 				opts := []query.SrchOption{
-					query.FilterBy("str", filter.OpLike, "%hello%"),
-					query.FilterBy("boolean", filter.OpEq, true),
-					query.FilterBy("number", filter.OpGT, "100"),
-					query.FilterBy("double", filter.OpLTEq, "3.14"),
-					query.FilterBy("id", filter.OpIn, []string{"123", "456", "789"}),
+					query.Filter(query.And(
+						query.Where("status", filter.OpEq, "active"),
+						query.Or(
+							query.Where("name", filter.OpEq, "example"),
+							query.Where("role", filter.OpEq, "admin"),
+						),
+					)),
 				}
 				deps.expectList(opts, listWithItems, nil)
 			},
 			reqOpts: []restest.RequestOption{
-				restest.RequestWithQueryParam("filter[str][like]", "%hello%"),
-				restest.RequestWithQueryParam("filter[boolean][eq]", "true"),
-				restest.RequestWithQueryParam("filter[number][gt]", "100"),
-				restest.RequestWithQueryParam("filter[double][lte]", "3.14"),
-				restest.RequestWithQueryParam("filter[id][in]", "123,456,789"),
+				restest.RequestWithQueryParam("filter", `{"and":[{"status":{"eq":"active"}},{"or":[{"name":{"eq":"example"}},{"role":{"eq":"admin"}}]}]}`),
+			},
+			assertions: []restest.ResponseAssertion{
+				restest.AssertListResponseOK(),
+				restest.AssertResMatchingFile(resFileDir, "ok", *updateGoldenFiles),
+			},
+		},
+		{
+			name: "filters with various operators and value types",
+			mock: func(deps *handlerDeps) {
+				opts := []query.SrchOption{
+					query.Filter(query.And(
+						query.Where("str", filter.OpLike, "%hello%"),
+						query.Where("boolean", filter.OpEq, true),
+						query.Where("number", filter.OpGT, "100"),
+						query.Where("double", filter.OpLTEq, "3.14"),
+						query.Where("id", filter.OpIn, []string{"123", "456", "789"}),
+					)),
+				}
+				deps.expectList(opts, listWithItems, nil)
+			},
+			reqOpts: []restest.RequestOption{
+				restest.RequestWithQueryParam("filter", `{"and":[{"str":{"like":"%hello%"}},{"boolean":{"eq":true}},{"number":{"gt":"100"}},{"double":{"lteq":"3.14"}},{"id":{"in":["123","456","789"]}}]}`),
 			},
 			assertions: []restest.ResponseAssertion{
 				restest.AssertListResponseOK(),
@@ -341,16 +361,16 @@ func TestNewListHandler(t *testing.T) {
 			name: "filters with null and negative values",
 			mock: func(deps *handlerDeps) {
 				opts := []query.SrchOption{
-					query.FilterBy("str", filter.OpIs, nil),
-					query.FilterBy("number", filter.OpLT, "-50"),
-					query.FilterBy("boolean", filter.OpNEq, false),
+					query.Filter(query.And(
+						query.Where("str", filter.OpIs, any(nil)),
+						query.Where("number", filter.OpLT, "-50"),
+						query.Where("boolean", filter.OpNEq, false),
+					)),
 				}
 				deps.expectList(opts, listWithItems, nil)
 			},
 			reqOpts: []restest.RequestOption{
-				restest.RequestWithQueryParam("filter[str][is]", "null"),
-				restest.RequestWithQueryParam("filter[number][lt]", "-50"),
-				restest.RequestWithQueryParam("filter[boolean][ne]", "false"),
+				restest.RequestWithQueryParam("filter", `{"and":[{"str":{"is":null}},{"number":{"lt":"-50"}},{"boolean":{"neq":false}}]}`),
 			},
 			assertions: []restest.ResponseAssertion{
 				restest.AssertListResponseOK(),
@@ -361,13 +381,13 @@ func TestNewListHandler(t *testing.T) {
 			name: "pagination with limit and offset",
 			mock: func(deps *handlerDeps) {
 				opts := []query.SrchOption{
-					query.FilterBy("str", filter.OpEq, "hello"),
+					query.Filter(query.Where("str", filter.OpEq, "hello")),
 					query.Pagination(25, 50),
 				}
 				deps.expectList(opts, listWithItems, nil)
 			},
 			reqOpts: []restest.RequestOption{
-				restest.RequestWithQueryParam("filter[str][eq]", "hello"),
+				restest.RequestWithQueryParam("filter", `{"str":{"eq":"hello"}}`),
 				restest.RequestWithQueryParam("page[limit]", "25"),
 				restest.RequestWithQueryParam("page[offset]", "50"),
 			},
@@ -380,13 +400,13 @@ func TestNewListHandler(t *testing.T) {
 			name: "pagination with only limit",
 			mock: func(deps *handlerDeps) {
 				opts := []query.SrchOption{
-					query.FilterBy("str", filter.OpEq, "hello"),
+					query.Filter(query.Where("str", filter.OpEq, "hello")),
 					query.Pagination(10, 0),
 				}
 				deps.expectList(opts, listWithItems, nil)
 			},
 			reqOpts: []restest.RequestOption{
-				restest.RequestWithQueryParam("filter[str][eq]", "hello"),
+				restest.RequestWithQueryParam("filter", `{"str":{"eq":"hello"}}`),
 				restest.RequestWithQueryParam("page[limit]", "10"),
 			},
 			assertions: []restest.ResponseAssertion{
@@ -398,7 +418,7 @@ func TestNewListHandler(t *testing.T) {
 			name: "sorting ascending and descending",
 			mock: func(deps *handlerDeps) {
 				opts := []query.SrchOption{
-					query.FilterBy("str", filter.OpEq, "hello"),
+					query.Filter(query.Where("str", filter.OpEq, "hello")),
 					query.SortBy("str", query.SortAsc),
 					query.SortBy("number", query.SortDesc),
 					query.SortBy("double", query.SortAsc),
@@ -406,7 +426,7 @@ func TestNewListHandler(t *testing.T) {
 				deps.expectList(opts, listWithItems, nil)
 			},
 			reqOpts: []restest.RequestOption{
-				restest.RequestWithQueryParam("filter[str][eq]", "hello"),
+				restest.RequestWithQueryParam("filter", `{"str":{"eq":"hello"}}`),
 				restest.RequestWithQueryParam("sort", "str,-number,double"),
 			},
 			assertions: []restest.ResponseAssertion{
@@ -418,9 +438,11 @@ func TestNewListHandler(t *testing.T) {
 			name: "combined filters, pagination, and sorting",
 			mock: func(deps *handlerDeps) {
 				opts := []query.SrchOption{
-					query.FilterBy("str", filter.OpEq, "hello"),
-					query.FilterBy("number", filter.OpGTEq, "42"),
-					query.FilterBy("double", filter.OpBetween, []string{"1.0", "5.0"}),
+					query.Filter(query.And(
+						query.Where("str", filter.OpEq, "hello"),
+						query.Where("number", filter.OpGTEq, "42"),
+						query.Where("double", filter.OpBetween, []string{"1.0", "5.0"}),
+					)),
 					query.Pagination(15, 30),
 					query.SortBy("createdAt", query.SortDesc),
 					query.SortBy("str", query.SortAsc),
@@ -428,9 +450,7 @@ func TestNewListHandler(t *testing.T) {
 				deps.expectList(opts, listWithItems, nil)
 			},
 			reqOpts: []restest.RequestOption{
-				restest.RequestWithQueryParam("filter[str][eq]", "hello"),
-				restest.RequestWithQueryParam("filter[number][gte]", "42"),
-				restest.RequestWithQueryParam("filter[double][btw]", "1.0,5.0"),
+				restest.RequestWithQueryParam("filter", `{"and":[{"str":{"eq":"hello"}},{"number":{"gteq":"42"}},{"double":{"between":["1.0","5.0"]}}]}`),
 				restest.RequestWithQueryParam("page[limit]", "15"),
 				restest.RequestWithQueryParam("page[offset]", "30"),
 				restest.RequestWithQueryParam("sort", "-createdAt,str"),

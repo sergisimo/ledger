@@ -12,7 +12,6 @@ require (
 	github.com/biter777/countries v1.7.5
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
-	github.com/jinzhu/gorm v1.9.16
 	github.com/orlangure/gnomock v0.32.0
 	github.com/stretchr/testify v1.12.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0
@@ -22,6 +21,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.45.0
 	go.uber.org/fx v1.24.0
 	golang.org/x/exp v0.0.0-20260727155853-b88d891fe743
+	gorm.io/gorm v1.31.2
 )
 
 require (
@@ -148,6 +148,7 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.7.8 // indirect
 	github.com/jgautheron/goconst v1.11.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/jjti/go-spancheck v0.6.5 // indirect
 	github.com/julz/importas v0.2.0 // indirect
 	github.com/karamaru-alpha/copyloopvar v1.2.2 // indirect

@@ -8,7 +8,7 @@ import (
 
 type (
 	Search interface {
-		Filters() Filters[any]
+		Filters() Filters
 		Sorting() SortingParams
 		Pagination() PaginationParams
 		Load() []fields.Name
@@ -23,7 +23,7 @@ const (
 
 type (
 	search struct {
-		filters    Filters[any]
+		filters    Filters
 		sorting    SortingParams
 		pagination PaginationParams
 		load       []fields.Name
@@ -34,7 +34,7 @@ type (
 
 func NewSearch(opts ...SrchOption) *search {
 	srch := &search{
-		filters:    make(Filters[any]),
+		filters:    Filters{},
 		sorting:    &sortingParams{fields: make(map[fields.Name]SortingDir), keys: []fields.Name{}},
 		pagination: nil,
 		load:       []fields.Name{},
@@ -53,7 +53,7 @@ func LoadRelated(fields ...fields.Name) SrchOption {
 	}
 }
 
-func (s *search) Filters() Filters[any] {
+func (s *search) Filters() Filters {
 	return s.filters
 }
 

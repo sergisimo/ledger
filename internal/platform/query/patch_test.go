@@ -22,7 +22,7 @@ func TestNewPatchQuery(t *testing.T) {
 		query.Patch(field2, 100, query.PatchFieldAdd),
 		query.Patch(field3, true, query.PatchFieldRemove),
 		query.PatchSearchOpts(
-			query.FilterBy(field1, filter.OpEq, "search-value"),
+			query.Filter(query.Where(field1, filter.OpEq, "search-value")),
 		),
 	)
 
