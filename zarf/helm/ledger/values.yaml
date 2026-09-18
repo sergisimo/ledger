@@ -26,3 +26,15 @@ container:
     REST_SHUTDOWN_TIMEOUT: "20s"
     TRACE_ADDRESS: "jaeger:4317"
     LOG_LEVEL: "debug"
+
+ingress:
+  enabled: true
+  entryPoints:
+    - websecure
+  tls:
+    secretName: ledger-tls
+  routes:
+    - match: PathPrefix(`/account-providers`)
+      services:
+        - name: ledger
+          port: http

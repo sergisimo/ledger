@@ -4,3 +4,7 @@ description: A Helm chart for deploying the Ledger application
 type: application
 version: 0.0.1
 appVersion: "0.0.1"
+dependencies:
+  - name: traefik
+    version: 0.0.1
+    repository: file://../traefik

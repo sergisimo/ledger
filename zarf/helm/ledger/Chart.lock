@@ -1,0 +1,6 @@
+dependencies:
+- name: traefik
+  repository: file://../traefik
+  version: 0.0.1
+digest: sha256:ce4a616d0082d5260ac87111e5c374db17c50972a095ba386b1767233d1c412a
+generated: "2026-09-18T12:09:21.193264+02:00"
