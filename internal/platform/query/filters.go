@@ -49,6 +49,14 @@ func (qf Filters) Exists(keys ...fields.Name) bool {
 	return false
 }
 
+func (qf Filters) Root() *tree.Node[CondNode] {
+	return qf.condTree
+}
+
+func (qf Filters) Empty() bool {
+	return qf.condTree == nil
+}
+
 func (qf Filters) Traverse() iter.Seq[CondNode] {
 	return qf.condTree.DepthFirst()
 }

@@ -40,7 +40,6 @@ const (
 	OpBetween
 	OpContains
 	OpNotContains
-	OpContainsLike
 	OpIs
 	OpIsNot
 )
@@ -51,8 +50,7 @@ func (op Operator) Valid() bool {
 		op == OpLT || op == OpLTEq ||
 		op == OpIn || op == OpNotIn || op == OpLike ||
 		op == OpBetween || op == OpContains || op == OpNotContains ||
-		op == OpContainsLike || op == OpIs ||
-		op == OpIsNot
+		op == OpIs || op == OpIsNot
 }
 
 func (op Operator) String() string {
@@ -81,8 +79,6 @@ func (op Operator) String() string {
 		return "contains"
 	case OpNotContains:
 		return "notcontains"
-	case OpContainsLike:
-		return "containslike"
 	case OpIs:
 		return "is"
 	case OpIsNot:

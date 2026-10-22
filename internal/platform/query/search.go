@@ -11,6 +11,7 @@ type (
 		Filters() Filters
 		Sorting() SortingParams
 		Pagination() PaginationParams
+		Locking() LockingParams
 		Load() []fields.Name
 	}
 )
@@ -26,6 +27,7 @@ type (
 		filters    Filters
 		sorting    SortingParams
 		pagination PaginationParams
+		locking    LockingParams
 		load       []fields.Name
 	}
 
@@ -37,6 +39,7 @@ func NewSearch(opts ...SrchOption) *search {
 		filters:    Filters{},
 		sorting:    &sortingParams{fields: make(map[fields.Name]SortingDir), keys: []fields.Name{}},
 		pagination: nil,
+		locking:    nil,
 		load:       []fields.Name{},
 	}
 
@@ -63,6 +66,10 @@ func (s *search) Sorting() SortingParams { //nolint:ireturn // struct also conta
 
 func (s *search) Pagination() PaginationParams { //nolint:ireturn // struct also contains the interface for flexibility
 	return s.pagination
+}
+
+func (s *search) Locking() LockingParams { //nolint:ireturn // struct also contains the interface for flexibility
+	return s.locking
 }
 
 func (s *search) Load() []fields.Name {

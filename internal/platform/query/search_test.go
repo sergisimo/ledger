@@ -31,6 +31,8 @@ func TestNewSearch(t *testing.T) {
 	)
 	require.NotNil(t, s1)
 
+	assert.Nil(t, s1.Locking())
+
 	filters := s1.Filters()
 	assert.True(t, filters.Exists(field1))
 	assert.True(t, filters.Exists(field2))
