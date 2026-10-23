@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package platform.rpctest.v1;
+
+import "google/protobuf/empty.proto";
+import "query.proto";
+import "resource.proto";
+
+option go_package = "github.com/sergisimo/ledger/internal/platform/gateway/rpc/rpctest/pb";
+
+service TestService {
+  rpc Get(platform.rpc.v1.IDQuery) returns (Test);
+  rpc List(ListRequest) returns (ListResponse);
+  rpc Create(Test) returns (Test);
+  rpc Patch(PatchRequest) returns (Test);
+  rpc Delete(platform.rpc.v1.IDQuery) returns (google.protobuf.Empty);
+}
+
+message Test {
+  platform.resource.v1.Resource resource = 1;
+  bool boolean = 2;
+  string str = 3;
+  int64 number = 4;
+  double double = 5;
+}
+
+message ListRequest {
+  optional string str = 1;
+  platform.rpc.v1.Page page = 2;
+  repeated platform.rpc.v1.Sort sort = 3;
+}
+
+message ListResponse {
+  repeated Test items = 1;
+  platform.rpc.v1.ListMeta meta = 2;
+}
+
+message PatchRequest {
+  string id = 1;
+  optional bool boolean = 2;
+  optional string str = 3;
+  optional int64 number = 4;
+  optional double double = 5;
+}

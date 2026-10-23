@@ -1,0 +1,6 @@
+gRPC 13 Internal
+
+{
+    "code": 13,
+    "message": "assert.AnError general error for testing"
+}

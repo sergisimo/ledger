@@ -1,0 +1,21 @@
+gRPC 0 OK
+
+{
+    "items": [
+        {
+            "resource": {
+                "id": "12345",
+                "type": "tests",
+                "createdAt": "2024-01-01T00:00:00Z",
+                "updatedAt": "2024-01-01T00:00:00Z"
+            },
+            "boolean": true,
+            "str": "test string",
+            "number": "42",
+            "double": 3.14
+        }
+    ],
+    "meta": {
+        "totalCount": 1
+    }
+}

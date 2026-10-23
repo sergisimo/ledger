@@ -1,0 +1,6 @@
+gRPC 5 NotFound
+
+{
+    "code": 5,
+    "message": "resource of type 'tests' not found given: '12345'"
+}

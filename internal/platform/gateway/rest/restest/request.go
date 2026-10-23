@@ -60,7 +60,7 @@ func GetHandlerRequestFileDir(handlerName string) string {
 }
 
 func getHandlerFileDir(handlerName string) string {
-	return filepath.Join("testdata", "handler", handlerName)
+	return filepath.Join("testdata", "resthandler", handlerName)
 }
 
 func RequestWithBodyFromFile(t *testing.T, fileFolder, fileName string) RequestOption {

@@ -1,0 +1,7 @@
+{
+    "id": "12345",
+    "boolean": false,
+    "str": "patched string",
+    "number": "99",
+    "double": 7.5
+}

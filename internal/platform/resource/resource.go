@@ -1,6 +1,11 @@
 package resource
 
-import "time"
+import (
+	"time"
+
+	"github.com/sergisimo/ledger/internal/platform/resource/pb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
 
 // --------------------------------------------------------------- Contract
 
@@ -89,4 +94,80 @@ func (r *RestDTO) UpdatedAt() time.Time {
 
 func (r *RestDTO) DeletedAt() *time.Time {
 	return r.RDeletedAt
+}
+
+// --------------------------------------------------------------- Proto
+
+func IndentifierToProto(i Identifier) *pb.Identifier {
+	return &pb.Identifier{
+		Id:   i.ID(),
+		Type: i.Type().String(),
+	}
+}
+
+func ToProto(r Resource) *pb.Resource {
+	res := &pb.Resource{
+		Id:        r.ID(),
+		Type:      r.Type().String(),
+		CreatedAt: timestamppb.New(r.CreatedAt()),
+		UpdatedAt: timestamppb.New(r.UpdatedAt()),
+	}
+	if deletedAt := r.DeletedAt(); deletedAt != nil {
+		res.DeletedAt = timestamppb.New(*deletedAt)
+	}
+	return res
+}
+
+type protoIdentifier struct {
+	pb *pb.Identifier
+}
+
+func IdentifierFromProto(msg *pb.Identifier) *protoIdentifier {
+	return &protoIdentifier{pb: msg}
+}
+
+func (i *protoIdentifier) ID() string {
+	return i.pb.GetId()
+}
+
+func (i *protoIdentifier) Type() Type {
+	return Type(i.pb.GetType())
+}
+
+type protoResource struct {
+	pb *pb.Resource
+}
+
+func FromProto(msg *pb.Resource) *protoResource {
+	return &protoResource{pb: msg}
+}
+
+func (r *protoResource) ID() string {
+	return r.pb.GetId()
+}
+
+func (r *protoResource) Type() Type {
+	return Type(r.pb.GetType())
+}
+
+func (r *protoResource) CreatedAt() time.Time {
+	if r.pb.GetCreatedAt() == nil {
+		return time.Time{}
+	}
+	return r.pb.GetCreatedAt().AsTime()
+}
+
+func (r *protoResource) UpdatedAt() time.Time {
+	if r.pb.GetUpdatedAt() == nil {
+		return time.Time{}
+	}
+	return r.pb.GetUpdatedAt().AsTime()
+}
+
+func (r *protoResource) DeletedAt() *time.Time {
+	if r.pb.GetDeletedAt() == nil {
+		return nil
+	}
+	deletedAt := r.pb.GetDeletedAt().AsTime()
+	return &deletedAt
 }

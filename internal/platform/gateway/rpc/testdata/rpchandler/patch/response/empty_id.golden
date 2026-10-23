@@ -1,0 +1,17 @@
+gRPC 3 InvalidArgument
+
+{
+    "code": 3,
+    "message": "error in field id: cannot be an empty string; err: value is not allowed to be set with a zero val",
+    "details": [
+        {
+            "@type": "type.googleapis.com/google.rpc.BadRequest",
+            "fieldViolations": [
+                {
+                    "field": "id",
+                    "description": "error in field id: cannot be an empty string; err: value is not allowed to be set with a zero val"
+                }
+            ]
+        }
+    ]
+}

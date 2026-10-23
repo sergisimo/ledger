@@ -32,6 +32,11 @@ docker-images:
 	docker pull docker.io/$(ALPINE)
 	docker pull docker.io/$(KIND)
 
+# Protobuf
+proto:
+	go tool buf lint
+	go tool buf generate
+
 # Tests
 lint:
 	go tool golangci-lint run ./...
