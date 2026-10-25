@@ -30,12 +30,12 @@ func Module(shutdownTimeout time.Duration) fx.Option {
 			),
 		),
 		fx.Invoke(
-			func(lc fx.Lifecycle, s *Server) {
+			func(lc fx.Lifecycle, s *Server, sd fx.Shutdowner) {
 				lc.Append(fx.Hook{
 					OnStart: func(ctx context.Context) error {
 						go func() {
 							if err := s.ListenAndServe(); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
-								panic(fmt.Sprintf("failed to start gRPC server: %v", err))
+								_ = sd.Shutdown(fx.ExitCode(1))
 							}
 						}()
 						return nil

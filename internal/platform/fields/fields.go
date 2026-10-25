@@ -19,6 +19,9 @@ const (
 	NameClient  Name = "client"
 	NameConfig  Name = "config"
 	NameService Name = "service"
+	NameLogger  Name = "logger"
+
+	NameAuthenticator Name = "authenticator"
 )
 
 func (f Name) String() string {

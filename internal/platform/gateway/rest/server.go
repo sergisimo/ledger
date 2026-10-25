@@ -32,55 +32,55 @@ type (
 		middlewares []Middleware
 	}
 
-	serverOpt func(*serverCfg)
+	ServerOpt func(*serverCfg)
 )
 
 // --------------------------------------------------------------- Constructors
 
-func ServerWithReadTimeout(timeout time.Duration) serverOpt {
+func ServerWithReadTimeout(timeout time.Duration) ServerOpt {
 	return func(s *serverCfg) {
 		s.readTimeout = timeout
 	}
 }
 
-func ServerWithWriteTimeout(timeout time.Duration) serverOpt {
+func ServerWithWriteTimeout(timeout time.Duration) ServerOpt {
 	return func(s *serverCfg) {
 		s.writeTimeout = timeout
 	}
 }
 
-func ServerWithIdleTimeout(timeout time.Duration) serverOpt {
+func ServerWithIdleTimeout(timeout time.Duration) ServerOpt {
 	return func(s *serverCfg) {
 		s.idleTimeout = timeout
 	}
 }
 
-func ServerWithAddress(addr string) serverOpt {
+func ServerWithAddress(addr string) ServerOpt {
 	return func(s *serverCfg) {
 		s.address = addr
 	}
 }
 
-func ServerWithTLSConfig(cfg *tls.Config) serverOpt {
+func ServerWithTLSConfig(cfg *tls.Config) ServerOpt {
 	return func(s *serverCfg) {
 		s.tlsConfig = cfg
 	}
 }
 
-func ServerWithControllers(controllers ...Controller) serverOpt {
+func ServerWithControllers(controllers ...Controller) ServerOpt {
 	return func(s *serverCfg) {
 		s.controllers = append(s.controllers, controllers...)
 	}
 }
 
-func ServerWithMiddlewares(middlewares ...Middleware) serverOpt {
+func ServerWithMiddlewares(middlewares ...Middleware) ServerOpt {
 	return func(s *serverCfg) {
 		s.middlewares = append(s.middlewares, middlewares...)
 	}
 }
 
-func defaultServerOpts() []serverOpt {
-	return []serverOpt{
+func defaultServerOpts() []ServerOpt {
+	return []ServerOpt{
 		ServerWithReadTimeout(parseDuration(os.Getenv("REST_READ_TIMEOUT"))),
 		ServerWithWriteTimeout(parseDuration(os.Getenv("REST_WRITE_TIMEOUT"))),
 		ServerWithIdleTimeout(parseDuration(os.Getenv("REST_IDLE_TIMEOUT"))),
@@ -103,7 +103,7 @@ func otelMiddleware() Middleware {
 	}
 }
 
-func NewServer(opts ...serverOpt) (*http.Server, error) {
+func NewServer(opts ...ServerOpt) (*http.Server, error) {
 	cfg := &serverCfg{
 		controllers: []Controller{},
 		middlewares: []Middleware{},

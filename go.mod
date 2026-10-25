@@ -14,6 +14,7 @@ require (
 	github.com/ardanlabs/conf/v3 v3.13.0
 	github.com/arl/statsviz v0.8.2
 	github.com/biter777/countries v1.7.5
+	github.com/coder/websocket v1.8.15
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3

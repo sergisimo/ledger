@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -19,7 +20,7 @@ func Module(shutdownTimeout time.Duration) fx.Option {
 		"rest",
 		fx.Provide(
 			fx.Annotate(
-				func(controllers []Controller) serverOpt { return ServerWithControllers(controllers...) },
+				func(controllers []Controller) ServerOpt { return ServerWithControllers(controllers...) },
 				fx.ParamTags(fmt.Sprintf(`group:"%s"`, controllersTag)),
 				fx.ResultTags(fmt.Sprintf(`group:"%s"`, serverOptsTag)),
 			),
@@ -29,12 +30,12 @@ func Module(shutdownTimeout time.Duration) fx.Option {
 			),
 		),
 		fx.Invoke(
-			func(lc fx.Lifecycle, s *http.Server) {
+			func(lc fx.Lifecycle, s *http.Server, sd fx.Shutdowner) {
 				lc.Append(fx.Hook{
 					OnStart: func(ctx context.Context) error {
 						go func() {
-							if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-								panic(fmt.Sprintf("failed to start REST server: %v", err))
+							if err := ListenAndServe(s); err != nil && !errors.Is(err, http.ErrServerClosed) {
+								_ = sd.Shutdown(fx.ExitCode(1))
 							}
 						}()
 						return nil
@@ -53,6 +54,13 @@ func Module(shutdownTimeout time.Duration) fx.Option {
 			},
 		),
 	)
+}
+
+func ListenAndServe(s *http.Server) error {
+	if s.TLSConfig != nil {
+		return s.ListenAndServeTLS("", "")
+	}
+	return s.ListenAndServe()
 }
 
 func ControllerFx(constructor any) fx.Option {
