@@ -28,7 +28,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.47.0
 	go.uber.org/fx v1.24.0
 	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20261012220534-4341edf3f941
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20261026165753-2ffab32bce7e
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.13-0.20261016172727-e9ee2a76ab8e
 	gorm.io/driver/mysql v1.6.0
