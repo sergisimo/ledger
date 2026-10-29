@@ -129,6 +129,8 @@ func TestNewServer(t *testing.T) {
 
 		server, err := rpc.NewServer(rpc.ServerWithAddress("invalid:address:99999"))
 		require.NoError(t, err)
-		assert.Error(t, server.ListenAndServe())
+
+		var addrErr *net.AddrError
+		assert.ErrorAs(t, server.ListenAndServe(), &addrErr)
 	})
 }

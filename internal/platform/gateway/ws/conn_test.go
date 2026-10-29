@@ -117,7 +117,6 @@ func TestConnTokenRefresh(t *testing.T) {
 
 		assert.Equal(t, ws.TypeAuthRefresh, wstest.Receive(t, conn).Type)
 
-		// Answering in time keeps the connection usable.
 		wstest.Authenticate(t, conn, authxtest.AnyToken)
 		wstest.Send(t, conn, ws.Message{Type: "custom", ID: "after-refresh"})
 		assert.Equal(t, ws.TypeAuthRefresh, wstest.Receive(t, conn).Type)
@@ -207,8 +206,6 @@ func TestConnHandler(t *testing.T) {
 	})
 }
 
-// TestConnPeriodicPush drives the write pump from outside the read path: the handler starts a
-// ticker that pushes to the client every 100ms until the connection goes away.
 func TestConnPeriodicPush(t *testing.T) {
 	t.Parallel()
 
@@ -287,7 +284,6 @@ func TestConnSend(t *testing.T) {
 			done    = make(chan struct{})
 		)
 
-		// A buffer of one plus a client that never reads: the queue fills up almost at once.
 		server := wstest.NewServer(t,
 			ws.ServerWithSendBuffer(1),
 			ws.ServerWithHandler(ws.HandlerFunc(func(_ context.Context, conn *ws.Conn, _ ws.Message) error {
@@ -316,7 +312,6 @@ func TestConnSend(t *testing.T) {
 	})
 }
 
-// closeStatus reads until the server closes the connection and returns the close code.
 func closeStatus(t *testing.T, conn *websocket.Conn) websocket.StatusCode {
 	t.Helper()
 

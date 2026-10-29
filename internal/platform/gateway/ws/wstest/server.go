@@ -17,12 +17,14 @@ import (
 	"github.com/sergisimo/ledger/internal/platform/logging"
 )
 
+// Server is a ws.Server listening on a random local port.
 type Server struct {
 	*ws.Server
 
 	URL string
 }
 
+// NewServer starts a Server with a test logger and an authenticator accepting authxtest.AnyToken.
 func NewServer(t *testing.T, opts ...ws.ServerOpt) *Server {
 	t.Helper()
 
@@ -43,6 +45,7 @@ func NewServer(t *testing.T, opts ...ws.ServerOpt) *Server {
 	return &Server{Server: server, URL: "ws://" + listener.Addr().String()}
 }
 
+// NewLogger returns a logger that discards output.
 func NewLogger(t *testing.T) logging.Logger {
 	t.Helper()
 
@@ -55,6 +58,7 @@ func NewLogger(t *testing.T) logging.Logger {
 	return logger
 }
 
+// Dial opens a client connection closed at cleanup.
 func Dial(t *testing.T, url string, opts *websocket.DialOptions) *websocket.Conn {
 	t.Helper()
 
@@ -65,6 +69,7 @@ func Dial(t *testing.T, url string, opts *websocket.DialOptions) *websocket.Conn
 	return conn
 }
 
+// DialAndAuthenticate dials the default path and authenticates with authxtest.AnyToken.
 func DialAndAuthenticate(t *testing.T, server *Server) *websocket.Conn {
 	t.Helper()
 
@@ -74,6 +79,7 @@ func DialAndAuthenticate(t *testing.T, server *Server) *websocket.Conn {
 	return conn
 }
 
+// Send writes msg as a text frame.
 func Send(t *testing.T, conn *websocket.Conn, msg ws.Message) {
 	t.Helper()
 
@@ -82,6 +88,7 @@ func Send(t *testing.T, conn *websocket.Conn, msg ws.Message) {
 	require.NoError(t, conn.Write(t.Context(), websocket.MessageText, data))
 }
 
+// Receive reads one message within a second.
 func Receive(t *testing.T, conn *websocket.Conn) ws.Message {
 	t.Helper()
 
@@ -98,6 +105,7 @@ func Receive(t *testing.T, conn *websocket.Conn) ws.Message {
 	return msg
 }
 
+// Authenticate sends token and requires an auth.ok reply.
 func Authenticate(t *testing.T, conn *websocket.Conn, token string) ws.Message {
 	t.Helper()
 
@@ -111,6 +119,7 @@ func Authenticate(t *testing.T, conn *websocket.Conn, token string) ws.Message {
 	return res
 }
 
+// Ping checks the connection is alive.
 func Ping(t *testing.T, conn *websocket.Conn) {
 	t.Helper()
 

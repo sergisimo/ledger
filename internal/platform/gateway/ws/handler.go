@@ -9,13 +9,16 @@ import (
 // --------------------------------------------------------------- Contract
 
 type (
+	// Handler receives authenticated messages whose type the package does not handle. A returned error is sent to the client as TypeError.
 	Handler interface {
 		Handle(ctx context.Context, conn *Conn, msg Message) error
 	}
 
+	// HandlerFunc adapts a function to Handler.
 	HandlerFunc func(ctx context.Context, conn *Conn, msg Message) error
 )
 
+// Handle calls f.
 func (f HandlerFunc) Handle(ctx context.Context, conn *Conn, msg Message) error {
 	return f(ctx, conn, msg)
 }

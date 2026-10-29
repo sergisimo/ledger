@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -139,15 +140,13 @@ func TestNewServer(t *testing.T) {
 		require.NoError(t, <-shutdown)
 
 		_, _, err = websocket.Dial(t.Context(), server.URL+ws.DefaultPath, nil)
-		require.Error(t, err)
+		require.ErrorIs(t, err, syscall.ECONNREFUSED)
 	})
 
 	t.Run("shutdown gives up on unresponsive clients when the context expires", func(t *testing.T) {
 		t.Parallel()
 
 		server := wstest.NewServer(t)
-		// Authenticating proves the server registered the connection before we shut down. The
-		// client stops reading afterwards, so it never answers the close handshake.
 		wstest.DialAndAuthenticate(t, server)
 
 		ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
@@ -219,7 +218,9 @@ func TestNewServer(t *testing.T) {
 
 		server, err := ws.NewServer(append(serverDefaults(t), ws.ServerWithAddress("invalid:address:99999"))...)
 		require.NoError(t, err)
-		assert.Error(t, server.ListenAndServe())
+
+		var addrErr *net.AddrError
+		assert.ErrorAs(t, server.ListenAndServe(), &addrErr)
 	})
 
 	t.Run("serve returns server closed after close", func(t *testing.T) {
@@ -244,7 +245,6 @@ func TestNewServer(t *testing.T) {
 	})
 }
 
-// serverDefaults supplies the two mandatory options, so each test only states what it exercises.
 func serverDefaults(t *testing.T) []ws.ServerOpt {
 	t.Helper()
 

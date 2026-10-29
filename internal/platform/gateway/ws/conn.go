@@ -17,10 +17,12 @@ import (
 // --------------------------------------------------------------- Contract
 
 type (
+	// ConnID identifies a connection for its lifetime.
 	ConnID string
 
 	authPhase int
 
+	// Conn is an accepted connection. Methods are safe for concurrent use.
 	Conn struct {
 		id  ConnID
 		ws  *websocket.Conn
@@ -31,8 +33,10 @@ type (
 		cancel context.CancelFunc
 		done   chan struct{}
 
-		send    chan Message
+		send    chan []byte
 		closing chan closeFrame
+
+		subMu sync.Mutex
 
 		mu       sync.Mutex
 		phase    authPhase
@@ -53,7 +57,9 @@ const (
 )
 
 var (
-	ErrConnClosed     = errors.New("websocket connection is closed")
+	// ErrConnClosed is returned by Send once the connection is closing.
+	ErrConnClosed = errors.New("websocket connection is closed")
+	// ErrSendBufferFull is returned by Send when the outgoing queue is full.
 	ErrSendBufferFull = errors.New("websocket send buffer is full")
 )
 
@@ -69,7 +75,7 @@ func (s *Server) newConn(ctx context.Context, cancel context.CancelFunc, wsConn 
 		ctx:     ctx,
 		cancel:  cancel,
 		done:    make(chan struct{}),
-		send:    make(chan Message, s.cfg.sendBuffer),
+		send:    make(chan []byte, s.cfg.sendBuffer),
 		closing: make(chan closeFrame, 1),
 	}
 	conn.log = s.log.With("connID", string(conn.id))
@@ -81,14 +87,17 @@ func (s *Server) newConn(ctx context.Context, cancel context.CancelFunc, wsConn 
 
 // --------------------------------------------------------------- Public API
 
+// ID returns the connection identifier.
 func (c *Conn) ID() ConnID {
 	return c.id
 }
 
+// Context is cancelled when the connection closes.
 func (c *Conn) Context() context.Context {
 	return c.ctx
 }
 
+// Identity returns the authenticated identity, zero before authentication.
 func (c *Conn) Identity() authx.Identity {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -96,6 +105,12 @@ func (c *Conn) Identity() authx.Identity {
 	return c.identity
 }
 
+// Subscriptions returns the subscribed topics, sorted.
+func (c *Conn) Subscriptions() []string {
+	return c.srv.subs.topics(c.id)
+}
+
+// Start runs the read and write loops and returns when the connection is done.
 func (c *Conn) Start() {
 	defer close(c.done)
 	defer c.deadline.Stop()
@@ -107,22 +122,20 @@ func (c *Conn) Start() {
 	}()
 
 	c.readPump()
+	c.cancel()
 	<-written
 }
 
+// Send queues msg without blocking.
 func (c *Conn) Send(msg Message) error {
-	if c.ctx.Err() != nil {
-		return ErrConnClosed
+	frame, err := json.Marshal(msg)
+	if err != nil {
+		return err
 	}
-
-	select {
-	case c.send <- msg:
-		return nil
-	default:
-		return ErrSendBufferFull
-	}
+	return c.sendFrame(frame)
 }
 
+// SendPayload encodes v and sends it as a message of msgType.
 func (c *Conn) SendPayload(id, msgType string, v any) error {
 	msg, err := NewMessage(id, msgType, v)
 	if err != nil {
@@ -131,10 +144,24 @@ func (c *Conn) SendPayload(id, msgType string, v any) error {
 	return c.Send(msg)
 }
 
+// Close flushes the queue and closes the connection with code and reason.
 func (c *Conn) Close(code websocket.StatusCode, reason string) {
 	select {
 	case c.closing <- closeFrame{code: code, reason: reason}:
 	default:
+	}
+}
+
+func (c *Conn) sendFrame(frame []byte) error {
+	if c.ctx.Err() != nil {
+		return ErrConnClosed
+	}
+
+	select {
+	case c.send <- frame:
+		return nil
+	default:
+		return ErrSendBufferFull
 	}
 }
 
@@ -176,8 +203,8 @@ func (c *Conn) writePump() {
 			c.closeWith(frame)
 			return
 
-		case msg := <-c.send:
-			if err := c.write(msg); err != nil {
+		case frame := <-c.send:
+			if err := c.write(frame); err != nil {
 				c.log.Debug(c.ctx, "stopped writing: %v", err)
 				return
 			}
@@ -191,17 +218,11 @@ func (c *Conn) writePump() {
 	}
 }
 
-func (c *Conn) write(msg Message) error {
-	data, err := json.Marshal(msg)
-	if err != nil {
-		c.log.Error(c.ctx, "dropping unencodable %q message: %v", msg.Type, err)
-		return nil
-	}
-
+func (c *Conn) write(frame []byte) error {
 	ctx, cancel := context.WithTimeout(c.ctx, c.srv.cfg.writeTimeout)
 	defer cancel()
 
-	return c.ws.Write(ctx, websocket.MessageText, data)
+	return c.ws.Write(ctx, websocket.MessageText, frame)
 }
 
 func (c *Conn) ping() error {
@@ -214,8 +235,8 @@ func (c *Conn) ping() error {
 func (c *Conn) closeWith(frame closeFrame) {
 	for {
 		select {
-		case msg := <-c.send:
-			if err := c.write(msg); err != nil {
+		case queued := <-c.send:
+			if err := c.write(queued); err != nil {
 				return
 			}
 			continue
@@ -240,15 +261,110 @@ func (c *Conn) dispatch(msg Message) {
 		return
 	}
 
-	if err := c.srv.handler.Handle(c.ctx, c, msg); err != nil {
-		c.log.Error(c.ctx, "handler failed for %q message: %v", msg.Type, err)
-		c.reject(msg.ID, err.Error())
+	switch msg.Type {
+	case TypeSubscribe:
+		c.subscribe(msg)
+	case TypeUnsubscribe:
+		c.unsubscribe(msg)
+	default:
+		if err := c.srv.handler.Handle(c.ctx, c, msg); err != nil {
+			c.log.Error(c.ctx, "handler failed for %q message: %v", msg.Type, err)
+			c.reject(msg.ID, err.Error())
+		}
 	}
 }
 
 func (c *Conn) reject(id, reason string) {
 	if err := c.SendPayload(id, TypeError, ErrorPayload{Message: reason}); err != nil {
 		c.log.Debug(c.ctx, "could not report %q to the client: %v", reason, err)
+	}
+}
+
+// --------------------------------------------------------------- Subscriptions
+
+func (c *Conn) subscribe(msg Message) {
+	topic, ok := c.bindTopic(msg)
+	if !ok {
+		return
+	}
+
+	handler := c.srv.cfg.subscriptionHandler
+	if handler == nil {
+		c.reject(msg.ID, "subscriptions are not enabled")
+		return
+	}
+
+	c.subMu.Lock()
+	defer c.subMu.Unlock()
+
+	if c.srv.subs.has(c.id, topic) {
+		c.confirm(msg.ID, TypeSubscribeOK, topic)
+		return
+	}
+
+	if c.srv.subs.count(c.id) >= c.srv.cfg.maxSubscriptions {
+		c.reject(msg.ID, "too many subscriptions")
+		return
+	}
+
+	if err := handler.OnSubscribe(c.ctx, c, topic); err != nil {
+		c.rejectSubscription(msg.ID, topic, err)
+		return
+	}
+
+	if err := c.srv.subs.add(c, topic); err != nil {
+		c.srv.onUnsubscribe(c, topic, UnsubscribeOnDisconnect)
+		return
+	}
+
+	c.confirm(msg.ID, TypeSubscribeOK, topic)
+}
+
+func (c *Conn) unsubscribe(msg Message) {
+	topic, ok := c.bindTopic(msg)
+	if !ok {
+		return
+	}
+
+	c.subMu.Lock()
+	if c.srv.subs.remove(c.id, topic) {
+		c.srv.onUnsubscribe(c, topic, UnsubscribeByClient)
+	}
+	c.subMu.Unlock()
+
+	c.confirm(msg.ID, TypeUnsubscribeOK, topic)
+}
+
+func (c *Conn) bindTopic(msg Message) (string, bool) {
+	var payload SubscribePayload
+	if err := msg.Bind(&payload); err != nil {
+		c.reject(msg.ID, "malformed subscription payload")
+		return "", false
+	}
+
+	if err := validateTopic(payload.Topic, c.srv.cfg.maxTopicLength); err != nil {
+		c.reject(msg.ID, "invalid topic")
+		return "", false
+	}
+
+	return payload.Topic, true
+}
+
+func (c *Conn) rejectSubscription(id, topic string, err error) {
+	switch {
+	case errors.Is(err, ErrSubscriptionForbidden):
+		c.reject(id, "forbidden")
+	case errors.Is(err, ErrUnknownTopic):
+		c.reject(id, "unknown topic")
+	default:
+		c.log.Error(c.ctx, "subscription handler failed for topic %q: %v", topic, err)
+		c.reject(id, "subscription failed")
+	}
+}
+
+func (c *Conn) confirm(id, msgType, topic string) {
+	if err := c.SendPayload(id, msgType, SubscribePayload{Topic: topic}); err != nil {
+		c.log.Debug(c.ctx, "could not confirm %q for topic %q: %v", msgType, topic, err)
 	}
 }
 
@@ -285,6 +401,8 @@ func (c *Conn) authenticate(msg Message) {
 	}
 
 	c.mu.Lock()
+	previous := c.identity
+	wasAuthenticated := c.phase != phaseUnauthenticated
 	c.identity = identity
 	c.phase = phaseAuthenticated
 	if identity.ExpiresAt.IsZero() {
@@ -293,6 +411,11 @@ func (c *Conn) authenticate(msg Message) {
 		c.deadline.Reset(time.Until(identity.ExpiresAt))
 	}
 	c.mu.Unlock()
+
+	if wasAuthenticated && previous.Subject != identity.Subject {
+		c.log.Info(c.ctx, "subject changed on re-authentication, dropping subscriptions")
+		c.srv.dropSubscriptions(c, UnsubscribeByServer)
+	}
 
 	expiresAt := &identity.ExpiresAt
 	if identity.ExpiresAt.IsZero() {

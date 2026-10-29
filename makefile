@@ -137,6 +137,9 @@ forward-http:
 forward-jaeger-ui:
 	kubectl port-forward -n $(NAMESPACE) svc/jaeger 16686:16686
 
+docs:
+	go run golang.org/x/pkgsite/cmd/pkgsite@latest -open .
+
 # Modules support
 tidy:
 	go mod tidy

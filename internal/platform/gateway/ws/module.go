@@ -8,27 +8,20 @@ import (
 	"time"
 
 	"go.uber.org/fx"
-
-	"github.com/sergisimo/ledger/internal/platform/authx"
-	"github.com/sergisimo/ledger/internal/platform/logging"
 )
 
 const (
+	// ServerOptsTag is the fx group that collects ServerOpt values.
 	ServerOptsTag = "wsServerOpts"
 )
 
+// Module provides a Server built from the ServerOptsTag group and runs it with the fx lifecycle.
 func Module(shutdownTimeout time.Duration) fx.Option {
 	return fx.Module(
 		"ws",
 		fx.Provide(
-			fx.Annotate(
-				func(log logging.Logger) ServerOpt { return ServerWithLogger(log) },
-				fx.ResultTags(fmt.Sprintf(`group:"%s"`, ServerOptsTag)),
-			),
-			fx.Annotate(
-				func(authenticator authx.Authenticator) ServerOpt { return ServerWithAuthenticator(authenticator) },
-				fx.ResultTags(fmt.Sprintf(`group:"%s"`, ServerOptsTag)),
-			),
+			fx.Annotate(ServerWithLogger, fx.ResultTags(fmt.Sprintf(`group:"%s"`, ServerOptsTag))),
+			fx.Annotate(ServerWithAuthenticator, fx.ResultTags(fmt.Sprintf(`group:"%s"`, ServerOptsTag))),
 			fx.Annotate(
 				NewServer,
 				fx.ParamTags(fmt.Sprintf(`group:"%s"`, ServerOptsTag)),
@@ -59,12 +52,23 @@ func Module(shutdownTimeout time.Duration) fx.Option {
 	)
 }
 
+// HandlerFx provides constructor as the Handler.
 func HandlerFx(constructor any) fx.Option {
 	return fx.Provide(
-		fx.Annotate(
-			func(handler Handler) ServerOpt { return ServerWithHandler(handler) },
-			fx.ResultTags(fmt.Sprintf(`group:"%s"`, ServerOptsTag)),
-		),
+		fx.Annotate(ServerWithHandler, fx.ResultTags(fmt.Sprintf(`group:"%s"`, ServerOptsTag))),
 		fx.Annotate(constructor, fx.As(new(Handler))),
 	)
+}
+
+// SubscriptionHandlerFx provides constructor as the SubscriptionHandler.
+func SubscriptionHandlerFx(constructor any) fx.Option {
+	return fx.Provide(
+		fx.Annotate(ServerWithSubscriptionHandler, fx.ResultTags(fmt.Sprintf(`group:"%s"`, ServerOptsTag))),
+		fx.Annotate(constructor, fx.As(new(SubscriptionHandler))),
+	)
+}
+
+// PublisherFx provides a Publisher[T] backed by the Server.
+func PublisherFx[T any]() fx.Option {
+	return fx.Provide(NewPublisher[T])
 }
