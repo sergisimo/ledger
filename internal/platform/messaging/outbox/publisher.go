@@ -3,7 +3,6 @@ package outbox
 import (
 	"context"
 
-	"github.com/sergisimo/ledger/internal/platform/fields"
 	"github.com/sergisimo/ledger/internal/platform/messaging"
 )
 
@@ -24,8 +23,8 @@ func (p *publisher) Publish(ctx context.Context, msgs ...messaging.Message) erro
 	}
 
 	for _, msg := range msgs {
-		if msg.Topic == "" {
-			return fields.NewErrInvalidEmptyString(messaging.FieldNameTopic)
+		if err := msg.Validate(); err != nil {
+			return err
 		}
 	}
 

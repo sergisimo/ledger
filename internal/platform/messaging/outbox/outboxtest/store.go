@@ -73,8 +73,8 @@ func NewDB(t *testing.T) *gorm.DB {
 
 	container, err := gnomock.Start(
 		pgpreset.Preset(
-			pgpreset.WithUser("ledger", "ledger"),
-			pgpreset.WithDatabase("ledger"),
+			pgpreset.WithUser("acme", "acme"),
+			pgpreset.WithDatabase("acme"),
 			pgpreset.WithVersion("18.6"),
 		),
 	)
@@ -85,7 +85,7 @@ func NewDB(t *testing.T) *gorm.DB {
 	})
 
 	dsn := fmt.Sprintf(
-		"host=%s port=%d user=ledger password=ledger dbname=ledger sslmode=disable",
+		"host=%s port=%d user=acme password=acme dbname=acme sslmode=disable",
 		container.Host, container.DefaultPort(),
 	)
 

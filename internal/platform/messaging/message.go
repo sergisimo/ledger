@@ -8,9 +8,11 @@ import (
 	"github.com/sergisimo/ledger/internal/platform/fields"
 )
 
-// FieldNameTopic names the topic field in validation errors, e.g.
-// fields.NewErrInvalidEmptyString(FieldNameTopic) for an empty topic.
-const FieldNameTopic fields.Name = "topic"
+const (
+	FieldNameTopic    fields.Name = "topic"
+	FieldNameHandler  fields.Name = "handler"
+	FieldNameConsumer fields.Name = "consumer"
+)
 
 type (
 	// Message is the envelope brokers and the outbox exchange. Use the typed
@@ -38,6 +40,18 @@ const (
 	HeaderTraceParent = "traceparent"
 	HeaderTraceState  = "tracestate"
 
+	// HeaderMessageID and HeaderMessageKey carry Message.ID and Message.Key
+	// on brokers without a native field for them, so consumers can still
+	// deduplicate redeliveries and read the key.
+	HeaderMessageID  = "message-id"
+	HeaderMessageKey = "message-key"
+
+	// HeaderDeadLetterOrigin and HeaderDeadLetterReason are set on messages a
+	// broker package moves to a dead-letter topic: the topic the message
+	// failed on and the error that exhausted it.
+	HeaderDeadLetterOrigin = "dead-letter-origin"
+	HeaderDeadLetterReason = "dead-letter-reason"
+
 	// ContentTypeJSON is the HeaderContentType value set by NewJSONMessage.
 	ContentTypeJSON = "application/json"
 )
@@ -63,6 +77,16 @@ func NewJSONMessage(topic string, v any) (Message, error) {
 	msg.Headers[HeaderContentType] = ContentTypeJSON
 
 	return msg, nil
+}
+
+// Validate checks that the message is publishable: a non-empty topic. Broker
+// packages call it on every message before accepting a batch.
+func (m Message) Validate() error {
+	if m.Topic == "" {
+		return fields.NewErrInvalidEmptyString(FieldNameTopic)
+	}
+
+	return nil
 }
 
 // Bind decodes the JSON payload into v. An empty payload is a no-op.

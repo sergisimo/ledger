@@ -16,10 +16,10 @@ import (
 
 func TestTracePropagation(t *testing.T) {
 	broker := messagingtest.NewBroker(t)
-	pub := messagingtest.NewPublisher[event](t, broker, "ledger.accounts")
+	pub := messagingtest.NewPublisher[event](t, broker, "acme.accounts")
 
 	traceIDs := make(chan string, 1)
-	messagingtest.Subscribe(t, broker, "ledger.accounts", func(ctx context.Context, _ messaging.Message) error {
+	messagingtest.Subscribe(t, broker, "acme.accounts", func(ctx context.Context, _ messaging.Message) error {
 		traceIDs <- tracing.GetTraceID(ctx)
 		return nil
 	})

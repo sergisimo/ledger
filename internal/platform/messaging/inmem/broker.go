@@ -13,7 +13,6 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/sergisimo/ledger/internal/platform/fields"
 	"github.com/sergisimo/ledger/internal/platform/logging"
 	"github.com/sergisimo/ledger/internal/platform/messaging"
 )
@@ -114,8 +113,8 @@ func (b *Broker) Stop(ctx context.Context) error {
 // is enqueued.
 func (b *Broker) Publish(ctx context.Context, msgs ...messaging.Message) error {
 	for _, msg := range msgs {
-		if msg.Topic == "" {
-			return fields.NewErrInvalidEmptyString(messaging.FieldNameTopic)
+		if err := msg.Validate(); err != nil {
+			return err
 		}
 	}
 

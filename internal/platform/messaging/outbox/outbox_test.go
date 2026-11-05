@@ -2,6 +2,7 @@ package outbox_test
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/sergisimo/ledger/internal/platform/messaging"
+	"github.com/sergisimo/ledger/internal/platform/messaging/inmem"
 	"github.com/sergisimo/ledger/internal/platform/messaging/messagingtest"
 	"github.com/sergisimo/ledger/internal/platform/messaging/outbox"
 	"github.com/sergisimo/ledger/internal/platform/messaging/outbox/outboxtest"
@@ -101,10 +103,47 @@ func (f *flakyPublisher) callCount() int {
 	return f.calls
 }
 
+// partialPublisher delivers batches through inner but, while remaining > 0,
+// fails the messages whose payload contains match, reporting them with a
+// messaging.BatchError.
+type partialPublisher struct {
+	inner messaging.MessagePublisher
+
+	mu        sync.Mutex
+	remaining int
+	match     string
+}
+
+func (p *partialPublisher) Publish(ctx context.Context, msgs ...messaging.Message) error {
+	p.mu.Lock()
+	failed := map[int]error{}
+	delivered := make([]messaging.Message, 0, len(msgs))
+	for i, msg := range msgs {
+		if p.remaining != 0 && strings.Contains(string(msg.Payload), p.match) {
+			failed[i] = assert.AnError
+			continue
+		}
+		delivered = append(delivered, msg)
+	}
+	if len(failed) > 0 {
+		p.remaining--
+	}
+	p.mu.Unlock()
+
+	if err := p.inner.Publish(ctx, delivered...); err != nil {
+		return err
+	}
+	if len(failed) > 0 {
+		return &messaging.BatchError{Failed: failed}
+	}
+
+	return nil
+}
+
 func newTypedPublisher(t *testing.T, store outbox.Store, topic string) messaging.Publisher[event] {
 	t.Helper()
 
-	pub, err := messaging.NewPublisher[event](outbox.NewPublisher(store), topic)
+	pub, err := messaging.NewPublisher[event](outbox.NewPublisher(store), topic, inmem.SystemName)
 	require.NoError(t, err)
 
 	return pub

@@ -22,6 +22,8 @@ const (
 	NameLogger  Name = "logger"
 
 	NameAuthenticator Name = "authenticator"
+
+	NameURL Name = "url"
 )
 
 func (f Name) String() string {

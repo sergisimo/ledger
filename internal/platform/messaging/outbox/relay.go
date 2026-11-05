@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/sergisimo/ledger/internal/platform/logging"
@@ -41,10 +42,11 @@ type (
 	}
 
 	// Relay moves pending messages from the Store to the broker. Each tick
-	// runs in one transaction: fetch with row locks, publish, mark dispatched;
-	// failed messages are rescheduled with exponential backoff. Running
-	// multiple relays (or service replicas) is safe. Most applications wire it
-	// with Module.
+	// runs in one transaction: fetch with row locks, publish the batch in a
+	// single call, mark dispatched; failed messages (every message on a plain
+	// publish error, only the reported ones on a messaging.BatchError) are
+	// rescheduled with exponential backoff. Running multiple relays (or
+	// service replicas) is safe. Most applications wire it with Module.
 	Relay struct {
 		store    Store
 		delegate messaging.MessagePublisher
@@ -89,7 +91,7 @@ var (
 	prunedMessages     = expvar.NewInt("messaging.outbox.pruned")
 )
 
-var tracer = otel.Tracer("messaging/outbox")
+var tracer = otel.Tracer("messaging/outbox", trace.WithSchemaURL(semconv.SchemaURL))
 
 // RelayWithClock overrides the relay's clock, e.g. with outboxtest.Clock for
 // deterministic backoff tests.
@@ -143,9 +145,7 @@ func NewRelay(
 		stopCh:   make(chan struct{}),
 	}
 	for _, opt := range opts {
-		if opt != nil {
-			opt(r)
-		}
+		opt(r)
 	}
 
 	return r
@@ -250,15 +250,20 @@ func (r *Relay) tick(ctx context.Context) (bool, error) {
 			return err
 		}
 		full = len(pending) == r.cfg.BatchSize
+		if len(pending) == 0 {
+			return nil
+		}
+
+		failures := r.dispatch(txCtx, pending)
 
 		dispatchedIDs := make([]string, 0, len(pending))
-		for _, msg := range pending {
-			if err := r.dispatch(txCtx, msg); err != nil {
+		for i, msg := range pending {
+			if pubErr, failed := failures[i]; failed {
 				retried++
 				if r.exhausted(msg.Attempts + 1) {
 					exhausted++
 				}
-				if err := r.reschedule(txCtx, msg, err); err != nil {
+				if err := r.reschedule(txCtx, msg, pubErr); err != nil {
 					return err
 				}
 				continue
@@ -287,17 +292,55 @@ func (r *Relay) tick(ctx context.Context) (bool, error) {
 	return full, nil
 }
 
-func (r *Relay) dispatch(ctx context.Context, msg Pending) error {
-	ctx = messaging.ExtractTrace(ctx, msg.Message)
-	ctx, span := tracer.Start(ctx, "outbox.dispatch "+msg.Topic, trace.WithSpanKind(trace.SpanKindProducer))
-	defer span.End()
-
-	err := r.delegate.Publish(ctx, msg.Message)
-	if err != nil {
-		span.RecordError(err)
+// dispatch publishes the whole batch in one call and returns the failures by
+// batch index: nil on success, only the failed indexes when the delegate
+// reports a messaging.BatchError, and every index on any other error.
+func (r *Relay) dispatch(ctx context.Context, pending []Pending) map[int]error {
+	msgs := make([]messaging.Message, len(pending))
+	links := make([]trace.Link, 0, len(pending))
+	for i, msg := range pending {
+		msgs[i] = msg.Message
+		// A batch mixes messages from unrelated transactions, so the span
+		// links each publishing trace instead of joining one of them.
+		if sc := trace.SpanContextFromContext(messaging.ExtractTrace(context.Background(), msg.Message)); sc.IsValid() {
+			links = append(links, trace.Link{SpanContext: sc})
+		}
 	}
 
-	return err
+	ctx, span := tracer.Start(
+		ctx,
+		"outbox.dispatch",
+		trace.WithSpanKind(trace.SpanKindProducer),
+		trace.WithLinks(links...),
+		trace.WithAttributes(
+			semconv.MessagingOperationName("dispatch"),
+			semconv.MessagingOperationTypeSend,
+			semconv.MessagingBatchMessageCount(len(msgs)),
+		),
+	)
+	defer span.End()
+
+	err := r.delegate.Publish(ctx, msgs...)
+	if err == nil {
+		return nil
+	}
+	span.RecordError(err)
+
+	failures := make(map[int]error, len(pending))
+	if batchErr, ok := errors.AsType[*messaging.BatchError](err); ok {
+		for i, pubErr := range batchErr.Failed {
+			if i >= 0 && i < len(pending) {
+				failures[i] = pubErr
+			}
+		}
+	}
+	if len(failures) == 0 {
+		for i := range pending {
+			failures[i] = err
+		}
+	}
+
+	return failures
 }
 
 func (r *Relay) reschedule(ctx context.Context, msg Pending, pubErr error) error {

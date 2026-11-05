@@ -44,11 +44,11 @@ func TestBroker(t *testing.T) {
 	t.Run("delivers typed events to every subscriber of the topic in order", func(t *testing.T) {
 		broker := messagingtest.NewBroker(t)
 
-		first := messagingtest.Collect[event](t, broker, "ledger.accounts")
-		second := messagingtest.Collect[event](t, broker, "ledger.accounts")
-		other := messagingtest.Collect[event](t, broker, "ledger.entries")
+		first := messagingtest.Collect[event](t, broker, "acme.accounts")
+		second := messagingtest.Collect[event](t, broker, "acme.accounts")
+		other := messagingtest.Collect[event](t, broker, "acme.entries")
 
-		pub := messagingtest.NewPublisher[event](t, broker, "ledger.accounts")
+		pub := messagingtest.NewPublisher[event](t, broker, "acme.accounts")
 		require.NoError(t, pub.Publish(t.Context(), event{Name: "checking"}, event{Name: "savings"}))
 
 		want := []event{{Name: "checking"}, {Name: "savings"}}
@@ -59,17 +59,17 @@ func TestBroker(t *testing.T) {
 		msgs := first.Messages()
 		assert.NotEqual(t, msgs[0].ID, msgs[1].ID)
 		for _, msg := range msgs {
-			assert.Equal(t, "ledger.accounts", msg.Topic)
+			assert.Equal(t, "acme.accounts", msg.Topic)
 			assert.Equal(t, messaging.ContentTypeJSON, msg.Headers[messaging.HeaderContentType])
 		}
 	})
 
 	t.Run("unsubscribe stops the worker and subscribe restarts it", func(t *testing.T) {
 		broker := messagingtest.NewBroker(t)
-		pub := messagingtest.NewPublisher[event](t, broker, "ledger.accounts")
+		pub := messagingtest.NewPublisher[event](t, broker, "acme.accounts")
 
 		received := make(chan event, 16)
-		sub, err := inmem.NewSubscriber(broker, "ledger.accounts", messaging.Handle(
+		sub, err := inmem.NewSubscriber(broker, "acme.accounts", messaging.Handle(
 			func(_ context.Context, payload event, _ messaging.Message) error {
 				received <- payload
 				return nil
@@ -93,10 +93,10 @@ func TestBroker(t *testing.T) {
 
 	t.Run("handler errors are logged and the worker keeps going", func(t *testing.T) {
 		broker := messagingtest.NewBroker(t)
-		pub := messagingtest.NewPublisher[event](t, broker, "ledger.accounts")
+		pub := messagingtest.NewPublisher[event](t, broker, "acme.accounts")
 
-		collector := messagingtest.Collect[event](t, broker, "ledger.accounts")
-		messagingtest.Subscribe(t, broker, "ledger.accounts", func(context.Context, messaging.Message) error {
+		collector := messagingtest.Collect[event](t, broker, "acme.accounts")
+		messagingtest.Subscribe(t, broker, "acme.accounts", func(context.Context, messaging.Message) error {
 			return assert.AnError
 		})
 
@@ -106,11 +106,11 @@ func TestBroker(t *testing.T) {
 
 	t.Run("handler panics are reported to onError and the worker survives", func(t *testing.T) {
 		broker := messagingtest.NewBroker(t)
-		pub := messagingtest.NewPublisher[event](t, broker, "ledger.accounts")
+		pub := messagingtest.NewPublisher[event](t, broker, "acme.accounts")
 
 		var rec errorRecorder
 		received := make(chan event, 16)
-		sub, err := inmem.NewSubscriber(broker, "ledger.accounts", messaging.Handle(
+		sub, err := inmem.NewSubscriber(broker, "acme.accounts", messaging.Handle(
 			func(_ context.Context, payload event, _ messaging.Message) error {
 				if payload.Name == "boom" {
 					panic("kaboom")
@@ -133,12 +133,12 @@ func TestBroker(t *testing.T) {
 
 	t.Run("a full queue blocks the publisher until its context expires", func(t *testing.T) {
 		broker := messagingtest.NewBroker(t)
-		pub := messagingtest.NewPublisher[event](t, broker, "ledger.accounts")
+		pub := messagingtest.NewPublisher[event](t, broker, "acme.accounts")
 
 		started := make(chan struct{}, 8)
 		release := make(chan struct{})
 		defer close(release)
-		messagingtest.Subscribe(t, broker, "ledger.accounts", func(context.Context, messaging.Message) error {
+		messagingtest.Subscribe(t, broker, "acme.accounts", func(context.Context, messaging.Message) error {
 			started <- struct{}{}
 			<-release
 			return nil
@@ -156,13 +156,13 @@ func TestBroker(t *testing.T) {
 
 	t.Run("a full queue drops and reports with the drop policy", func(t *testing.T) {
 		broker := messagingtest.NewBroker(t)
-		pub := messagingtest.NewPublisher[event](t, broker, "ledger.accounts")
+		pub := messagingtest.NewPublisher[event](t, broker, "acme.accounts")
 
 		var rec errorRecorder
 		started := make(chan struct{}, 8)
 		release := make(chan struct{})
 		processed := make(chan event, 16)
-		sub, err := inmem.NewSubscriber(broker, "ledger.accounts",
+		sub, err := inmem.NewSubscriber(broker, "acme.accounts",
 			messaging.Handle(func(_ context.Context, payload event, _ messaging.Message) error {
 				started <- struct{}{}
 				<-release
@@ -193,10 +193,10 @@ func TestBroker(t *testing.T) {
 
 	t.Run("supports concurrent publishers", func(t *testing.T) {
 		broker := messagingtest.NewBroker(t)
-		pub := messagingtest.NewPublisher[event](t, broker, "ledger.accounts")
+		pub := messagingtest.NewPublisher[event](t, broker, "acme.accounts")
 
 		var count atomic.Int64
-		messagingtest.Subscribe(t, broker, "ledger.accounts", func(context.Context, messaging.Message) error {
+		messagingtest.Subscribe(t, broker, "acme.accounts", func(context.Context, messaging.Message) error {
 			count.Add(1)
 			return nil
 		})
@@ -226,10 +226,10 @@ func TestBrokerLifecycle(t *testing.T) {
 	t.Run("publishing and subscribing require a running broker", func(t *testing.T) {
 		broker := inmem.NewBroker(messagingtest.NewLogger(t))
 
-		err := broker.Publish(t.Context(), messaging.NewMessage("ledger.accounts", nil))
+		err := broker.Publish(t.Context(), messaging.NewMessage("acme.accounts", nil))
 		require.ErrorIs(t, err, inmem.ErrBrokerNotRunning)
 
-		sub, err := inmem.NewSubscriber(broker, "ledger.accounts", handler)
+		sub, err := inmem.NewSubscriber(broker, "acme.accounts", handler)
 		require.NoError(t, err)
 		require.ErrorIs(t, sub.Subscribe(t.Context(), nil), inmem.ErrBrokerNotRunning)
 	})
@@ -243,7 +243,7 @@ func TestBrokerLifecycle(t *testing.T) {
 		require.NoError(t, broker.Stop(t.Context()), "stop should be idempotent")
 		require.ErrorIs(t, broker.Start(), inmem.ErrBrokerClosed)
 
-		err := broker.Publish(t.Context(), messaging.NewMessage("ledger.accounts", nil))
+		err := broker.Publish(t.Context(), messaging.NewMessage("acme.accounts", nil))
 		require.ErrorIs(t, err, inmem.ErrBrokerNotRunning)
 	})
 
@@ -251,7 +251,7 @@ func TestBrokerLifecycle(t *testing.T) {
 		broker := inmem.NewBroker(messagingtest.NewLogger(t))
 		require.NoError(t, broker.Start())
 
-		sub, err := inmem.NewSubscriber(broker, "ledger.accounts", handler)
+		sub, err := inmem.NewSubscriber(broker, "acme.accounts", handler)
 		require.NoError(t, err)
 		require.NoError(t, sub.Subscribe(t.Context(), nil))
 
@@ -263,7 +263,7 @@ func TestBrokerLifecycle(t *testing.T) {
 	t.Run("subscribe twice and unsubscribe twice are errors", func(t *testing.T) {
 		broker := messagingtest.NewBroker(t)
 
-		sub, err := inmem.NewSubscriber(broker, "ledger.accounts", handler)
+		sub, err := inmem.NewSubscriber(broker, "acme.accounts", handler)
 		require.NoError(t, err)
 
 		require.NoError(t, sub.Subscribe(t.Context(), nil))
@@ -275,12 +275,12 @@ func TestBrokerLifecycle(t *testing.T) {
 
 	t.Run("unsubscribe honours its context while a handler is in flight", func(t *testing.T) {
 		broker := messagingtest.NewBroker(t)
-		pub := messagingtest.NewPublisher[event](t, broker, "ledger.accounts")
+		pub := messagingtest.NewPublisher[event](t, broker, "acme.accounts")
 
 		started := make(chan struct{}, 1)
 		release := make(chan struct{})
 		defer close(release)
-		sub := messagingtest.Subscribe(t, broker, "ledger.accounts", func(context.Context, messaging.Message) error {
+		sub := messagingtest.Subscribe(t, broker, "acme.accounts", func(context.Context, messaging.Message) error {
 			started <- struct{}{}
 			<-release
 			return nil
@@ -300,16 +300,16 @@ func TestBrokerLifecycle(t *testing.T) {
 		_, err := inmem.NewSubscriber(broker, "", handler)
 		require.ErrorIs(t, err, fields.NewErrInvalidEmptyString(messaging.FieldNameTopic))
 
-		_, err = inmem.NewSubscriber(broker, "ledger.accounts", nil)
+		_, err = inmem.NewSubscriber(broker, "acme.accounts", nil)
 		require.ErrorIs(t, err, fields.NewErrNil(messaging.FieldNameHandler))
 	})
 
 	t.Run("rejects publishing a message with an empty topic", func(t *testing.T) {
 		broker := messagingtest.NewBroker(t)
-		collector := messagingtest.Collect[event](t, broker, "ledger.accounts")
+		collector := messagingtest.Collect[event](t, broker, "acme.accounts")
 
 		err := broker.Publish(t.Context(),
-			messaging.NewMessage("ledger.accounts", nil),
+			messaging.NewMessage("acme.accounts", nil),
 			messaging.NewMessage("", nil),
 		)
 		require.ErrorIs(t, err, fields.NewErrInvalidEmptyString(messaging.FieldNameTopic))

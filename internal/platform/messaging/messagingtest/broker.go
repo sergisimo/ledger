@@ -56,7 +56,7 @@ func NewLogger(t *testing.T) logging.Logger {
 func NewPublisher[T any](t *testing.T, broker *inmem.Broker, topic string) messaging.Publisher[T] {
 	t.Helper()
 
-	pub, err := messaging.NewPublisher[T](broker, topic)
+	pub, err := messaging.NewPublisher[T](broker, topic, inmem.SystemName)
 	require.NoError(t, err)
 
 	return pub

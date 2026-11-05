@@ -24,9 +24,9 @@ func TestRelay(t *testing.T) {
 		store.Reset(t)
 
 		broker := messagingtest.NewBroker(t)
-		collector := messagingtest.Collect[event](t, broker, "ledger.accounts")
+		collector := messagingtest.Collect[event](t, broker, "acme.accounts")
 
-		pub := newTypedPublisher(t, store, "ledger.accounts")
+		pub := newTypedPublisher(t, store, "acme.accounts")
 		require.NoError(t, pub.Publish(t.Context(), event{Name: "checking"}, event{Name: "savings"}))
 
 		startRelay(t, outbox.NewRelay(store, broker, store.Transactioner, messagingtest.NewLogger(t), fastCfg()))
@@ -42,9 +42,9 @@ func TestRelay(t *testing.T) {
 		store.Reset(t)
 
 		broker := messagingtest.NewBroker(t)
-		collector := messagingtest.Collect[event](t, broker, "ledger.accounts")
+		collector := messagingtest.Collect[event](t, broker, "acme.accounts")
 
-		pub := newTypedPublisher(t, store, "ledger.accounts")
+		pub := newTypedPublisher(t, store, "acme.accounts")
 		require.NoError(t, pub.Publish(t.Context(),
 			event{Name: "1"}, event{Name: "2"}, event{Name: "3"}, event{Name: "4"}, event{Name: "5"},
 		))
@@ -59,9 +59,9 @@ func TestRelay(t *testing.T) {
 		store.Reset(t)
 
 		broker := messagingtest.NewBroker(t)
-		collector := messagingtest.Collect[event](t, broker, "ledger.accounts")
+		collector := messagingtest.Collect[event](t, broker, "acme.accounts")
 
-		pub := newTypedPublisher(t, store, "ledger.accounts")
+		pub := newTypedPublisher(t, store, "acme.accounts")
 		require.NoError(t, pub.Publish(t.Context(), event{Name: "checking"}))
 		msgID := firstRowID(t, store)
 
@@ -93,10 +93,53 @@ func TestRelay(t *testing.T) {
 		assert.Equal(t, []event{{Name: "checking"}}, collector.Wait(t, 1))
 	})
 
+	t.Run("a partial batch failure retries only the failed messages", func(t *testing.T) {
+		store.Reset(t)
+
+		broker := messagingtest.NewBroker(t)
+		collector := messagingtest.Collect[event](t, broker, "acme.accounts")
+
+		pub := newTypedPublisher(t, store, "acme.accounts")
+		require.NoError(t, pub.Publish(t.Context(), event{Name: "fine"}, event{Name: "flaky"}))
+
+		rows := store.Rows(t)
+		require.Len(t, rows, 2)
+		flakyID := rows[1].ID
+
+		delegate := &partialPublisher{inner: broker, remaining: 1, match: "flaky"}
+		cfg := fastCfg()
+		cfg.InitialBackoff = 20 * time.Millisecond
+		cfg.MaxBackoff = 20 * time.Millisecond
+		startRelay(t, outbox.NewRelay(store, delegate, store.Transactioner, messagingtest.NewLogger(t), cfg))
+
+		assert.Equal(t, []event{{Name: "fine"}}, collector.Wait(t, 1), "the delivered part of the batch should be dispatched immediately")
+
+		require.Eventually(
+			t,
+			func() bool {
+				row, ok := store.Row(t, flakyID)
+				return ok && row.Attempts == 1
+			},
+			messagingtest.Timeout,
+			time.Millisecond,
+			"only the failed message should be rescheduled",
+		)
+
+		assert.Equal(t, []event{{Name: "fine"}, {Name: "flaky"}}, collector.Wait(t, 2), "the failed message should be retried and delivered")
+		require.Eventually(
+			t,
+			func() bool {
+				return store.DispatchedCount(t) == 2
+			},
+			messagingtest.Timeout,
+			time.Millisecond,
+		)
+	})
+
 	t.Run("caps the backoff at MaxBackoff", func(t *testing.T) {
 		store.Reset(t)
 
-		pub := newTypedPublisher(t, store, "ledger.accounts")
+		pub := newTypedPublisher(t, store, "acme.accounts")
 		require.NoError(t, pub.Publish(t.Context(), event{Name: "checking"}))
 		msgID := firstRowID(t, store)
 
@@ -139,7 +182,7 @@ func TestRelay(t *testing.T) {
 	t.Run("parks messages after MaxAttempts", func(t *testing.T) {
 		store.Reset(t)
 
-		pub := newTypedPublisher(t, store, "ledger.accounts")
+		pub := newTypedPublisher(t, store, "acme.accounts")
 		require.NoError(t, pub.Publish(t.Context(), event{Name: "checking"}))
 		msgID := firstRowID(t, store)
 
@@ -169,9 +212,9 @@ func TestRelay(t *testing.T) {
 		store.Reset(t)
 
 		broker := messagingtest.NewBroker(t)
-		collector := messagingtest.Collect[event](t, broker, "ledger.accounts")
+		collector := messagingtest.Collect[event](t, broker, "acme.accounts")
 
-		pub := newTypedPublisher(t, store, "ledger.accounts")
+		pub := newTypedPublisher(t, store, "acme.accounts")
 		require.NoError(t, pub.Publish(t.Context(), event{Name: "checking"}, event{Name: "savings"}))
 
 		cfg := fastCfg()
@@ -188,9 +231,9 @@ func TestRelay(t *testing.T) {
 		store.Reset(t)
 
 		broker := messagingtest.NewBroker(t)
-		collector := messagingtest.Collect[event](t, broker, "ledger.accounts")
+		collector := messagingtest.Collect[event](t, broker, "acme.accounts")
 
-		pub := newTypedPublisher(t, store, "ledger.accounts")
+		pub := newTypedPublisher(t, store, "acme.accounts")
 		require.NoError(t, pub.Publish(t.Context(), event{Name: "checking"}))
 
 		cfg := fastCfg()
@@ -208,12 +251,12 @@ func TestRelay(t *testing.T) {
 		store.Reset(t)
 
 		broker := messagingtest.NewBroker(t)
-		collector := messagingtest.Collect[event](t, broker, "ledger.accounts")
+		collector := messagingtest.Collect[event](t, broker, "acme.accounts")
 
 		failing := &failingStore{Store: store}
 		failing.failFetchWith(assert.AnError)
 
-		pub := newTypedPublisher(t, store, "ledger.accounts")
+		pub := newTypedPublisher(t, store, "acme.accounts")
 		require.NoError(t, pub.Publish(t.Context(), event{Name: "checking"}))
 
 		startRelay(t, outbox.NewRelay(failing, broker, store.Transactioner, messagingtest.NewLogger(t), fastCfg()))
@@ -227,8 +270,8 @@ func TestRelay(t *testing.T) {
 		store.Reset(t)
 
 		broker := messagingtest.NewBroker(t)
-		collector := messagingtest.Collect[event](t, broker, "ledger.accounts")
-		pub := newTypedPublisher(t, store, "ledger.accounts")
+		collector := messagingtest.Collect[event](t, broker, "acme.accounts")
+		pub := newTypedPublisher(t, store, "acme.accounts")
 
 		dispatched, ok := expvar.Get("messaging.outbox.dispatched").(*expvar.Int)
 		require.True(t, ok)
@@ -258,10 +301,10 @@ func TestRelay(t *testing.T) {
 		store.Reset(t)
 
 		broker := messagingtest.NewBroker(t)
-		pub := newTypedPublisher(t, store, "ledger.accounts")
+		pub := newTypedPublisher(t, store, "acme.accounts")
 
 		traceIDs := make(chan string, 1)
-		messagingtest.Subscribe(t, broker, "ledger.accounts", func(ctx context.Context, _ messaging.Message) error {
+		messagingtest.Subscribe(t, broker, "acme.accounts", func(ctx context.Context, _ messaging.Message) error {
 			traceIDs <- tracing.GetTraceID(ctx)
 			return nil
 		})

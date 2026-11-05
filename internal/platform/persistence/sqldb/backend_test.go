@@ -69,8 +69,8 @@ func startPostgres(t *testing.T) gorm.Dialector {
 
 	container, err := gnomock.Start(
 		pgpreset.Preset(
-			pgpreset.WithUser("ledger", "ledger"),
-			pgpreset.WithDatabase("ledger"),
+			pgpreset.WithUser("acme", "acme"),
+			pgpreset.WithDatabase("acme"),
 			pgpreset.WithVersion("18.6"),
 		),
 	)
@@ -82,7 +82,7 @@ func startPostgres(t *testing.T) gorm.Dialector {
 	})
 
 	dsn := fmt.Sprintf(
-		"host=%s port=%d user=ledger password=ledger dbname=ledger sslmode=disable",
+		"host=%s port=%d user=acme password=acme dbname=acme sslmode=disable",
 		container.Host, container.DefaultPort(),
 	)
 
@@ -94,8 +94,8 @@ func startMySQL(t *testing.T) gorm.Dialector {
 
 	container, err := gnomock.Start(
 		mysqlpreset.Preset(
-			mysqlpreset.WithUser("ledger", "ledger"),
-			mysqlpreset.WithDatabase("ledger"),
+			mysqlpreset.WithUser("acme", "acme"),
+			mysqlpreset.WithDatabase("acme"),
 		),
 	)
 	require.NoError(t, err, "failed to start mysql container")
@@ -106,7 +106,7 @@ func startMySQL(t *testing.T) gorm.Dialector {
 	})
 
 	dsn := fmt.Sprintf(
-		"ledger:ledger@tcp(%s:%d)/ledger?charset=utf8mb4&parseTime=True",
+		"acme:acme@tcp(%s:%d)/acme?charset=utf8mb4&parseTime=True",
 		container.Host, container.DefaultPort(),
 	)
 

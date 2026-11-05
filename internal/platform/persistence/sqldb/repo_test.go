@@ -55,7 +55,7 @@ func seedUsers() []user {
 		{
 			ID:       1,
 			Name:     "Ada",
-			Email:    "ada@ledger.dev",
+			Email:    "ada@example.com",
 			Age:      36,
 			Country:  "ES",
 			Nickname: nil,
@@ -65,7 +65,7 @@ func seedUsers() []user {
 		{
 			ID:       2,
 			Name:     "Grace",
-			Email:    "grace@ledger.dev",
+			Email:    "grace@example.com",
 			Age:      45,
 			Country:  "US",
 			Nickname: varutils.Ptr("amazing"),
@@ -75,7 +75,7 @@ func seedUsers() []user {
 		{
 			ID:       3,
 			Name:     "Alan",
-			Email:    "alan@ledger.dev",
+			Email:    "alan@example.com",
 			Age:      41,
 			Country:  "UK",
 			Nickname: nil,
@@ -85,7 +85,7 @@ func seedUsers() []user {
 		{
 			ID:       4,
 			Name:     "Edsger",
-			Email:    "edsger@ledger.dev",
+			Email:    "edsger@example.com",
 			Age:      29,
 			Country:  "NL",
 			Nickname: varutils.Ptr("dijkstra"),
@@ -95,7 +95,7 @@ func seedUsers() []user {
 		{
 			ID:       5,
 			Name:     "Barbara",
-			Email:    "barbara@ledger.dev",
+			Email:    "barbara@example.com",
 			Age:      36,
 			Country:  "US",
 			Nickname: varutils.Ptr("barb"),

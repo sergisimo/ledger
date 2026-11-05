@@ -18,7 +18,7 @@ func TestTraceInjectExtract(t *testing.T) {
 		})
 		ctx := trace.ContextWithSpanContext(t.Context(), sc)
 
-		original := messaging.NewMessage("ledger.accounts", nil)
+		original := messaging.NewMessage("acme.accounts", nil)
 		injected := messaging.InjectTrace(ctx, original)
 
 		assert.NotEmpty(t, injected.Headers[messaging.HeaderTraceParent])
@@ -29,7 +29,7 @@ func TestTraceInjectExtract(t *testing.T) {
 	})
 
 	t.Run("is a no-op without a trace or headers", func(t *testing.T) {
-		msg := messaging.InjectTrace(t.Context(), messaging.NewMessage("ledger.accounts", nil))
+		msg := messaging.InjectTrace(t.Context(), messaging.NewMessage("acme.accounts", nil))
 		assert.Empty(t, msg.Headers[messaging.HeaderTraceParent])
 
 		ctx := messaging.ExtractTrace(t.Context(), messaging.Message{})

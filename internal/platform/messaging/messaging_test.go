@@ -27,27 +27,34 @@ func (f pubFunc) Publish(ctx context.Context, msgs ...messaging.Message) error {
 
 func TestMessage(t *testing.T) {
 	t.Run("gets a unique ID", func(t *testing.T) {
-		msg := messaging.NewMessage("ledger.accounts", []byte(`{}`))
-		other := messaging.NewMessage("ledger.accounts", nil)
+		msg := messaging.NewMessage("acme.accounts", []byte(`{}`))
+		other := messaging.NewMessage("acme.accounts", nil)
 
 		assert.NotEmpty(t, msg.ID)
 		assert.NotEqual(t, msg.ID, other.ID)
 	})
 
 	t.Run("returns JSON encoding errors", func(t *testing.T) {
-		_, err := messaging.NewJSONMessage("ledger.accounts", func() {})
+		_, err := messaging.NewJSONMessage("acme.accounts", func() {})
 		require.Error(t, err)
 	})
 
 	t.Run("binding an empty payload is a no-op", func(t *testing.T) {
 		got := event{Name: "unchanged"}
-		require.NoError(t, messaging.NewMessage("ledger.accounts", nil).Bind(&got))
+		require.NoError(t, messaging.NewMessage("acme.accounts", nil).Bind(&got))
 		assert.Equal(t, event{Name: "unchanged"}, got)
 	})
 
 	t.Run("returns JSON decoding errors", func(t *testing.T) {
 		var got event
-		require.Error(t, messaging.NewMessage("ledger.accounts", []byte("not-json")).Bind(&got))
+		require.Error(t, messaging.NewMessage("acme.accounts", []byte("not-json")).Bind(&got))
+	})
+
+	t.Run("validates the topic", func(t *testing.T) {
+		require.NoError(t, messaging.NewMessage("acme.accounts", nil).Validate())
+
+		err := messaging.NewMessage("", nil).Validate()
+		require.ErrorIs(t, err, fields.NewErrInvalidEmptyString(messaging.FieldNameTopic))
 	})
 }
 
@@ -58,18 +65,18 @@ func TestNewPublisher(t *testing.T) {
 	})
 
 	t.Run("rejects an empty topic", func(t *testing.T) {
-		_, err := messaging.NewPublisher[event](failIfCalled, "")
+		_, err := messaging.NewPublisher[event](failIfCalled, "", "test")
 		require.ErrorIs(t, err, fields.NewErrInvalidEmptyString(messaging.FieldNameTopic))
 	})
 
 	t.Run("is a no-op without payloads", func(t *testing.T) {
-		pub, err := messaging.NewPublisher[event](failIfCalled, "ledger.accounts")
+		pub, err := messaging.NewPublisher[event](failIfCalled, "acme.accounts", "test")
 		require.NoError(t, err)
 		require.NoError(t, pub.Publish(t.Context()))
 	})
 
 	t.Run("returns encoding errors before publishing anything", func(t *testing.T) {
-		pub, err := messaging.NewPublisher[func()](failIfCalled, "ledger.accounts")
+		pub, err := messaging.NewPublisher[func()](failIfCalled, "acme.accounts", "test")
 		require.NoError(t, err)
 		require.Error(t, pub.Publish(t.Context(), func() {}))
 	})
@@ -78,7 +85,7 @@ func TestNewPublisher(t *testing.T) {
 		failing := pubFunc(func(context.Context, ...messaging.Message) error {
 			return assert.AnError
 		})
-		pub, err := messaging.NewPublisher[event](failing, "ledger.accounts")
+		pub, err := messaging.NewPublisher[event](failing, "acme.accounts", "test")
 		require.NoError(t, err)
 		require.ErrorIs(t, pub.Publish(t.Context(), event{Name: "checking"}), assert.AnError)
 	})
@@ -92,8 +99,9 @@ func TestHandle(t *testing.T) {
 			return nil
 		})
 
-		err := handler(t.Context(), messaging.NewMessage("ledger.accounts", []byte("not-json")))
+		err := handler(t.Context(), messaging.NewMessage("acme.accounts", []byte("not-json")))
 		require.Error(t, err)
+		assert.True(t, messaging.IsPermanent(err), "an undecodable payload should never be redelivered")
 		assert.False(t, invoked)
 	})
 
@@ -102,7 +110,7 @@ func TestHandle(t *testing.T) {
 			return assert.AnError
 		})
 
-		msg, err := messaging.NewJSONMessage("ledger.accounts", event{Name: "checking"})
+		msg, err := messaging.NewJSONMessage("acme.accounts", event{Name: "checking"})
 		require.NoError(t, err)
 		require.ErrorIs(t, handler(t.Context(), msg), assert.AnError)
 	})

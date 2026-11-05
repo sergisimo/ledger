@@ -3,13 +3,7 @@ package messaging
 import (
 	"context"
 	"errors"
-
-	"github.com/sergisimo/ledger/internal/platform/fields"
 )
-
-// FieldNameHandler names the handler field in validation errors, e.g.
-// fields.NewErrNil(FieldNameHandler) for a nil handler.
-const FieldNameHandler fields.Name = "handler"
 
 var (
 	// ErrAlreadySubscribed is returned by Subscribe on an active subscriber.
@@ -20,8 +14,9 @@ var (
 
 type (
 	// HandlerFunc processes one message. Returning nil acknowledges it; an
-	// error asks the broker to redeliver where it can (the in-memory broker
-	// only logs it).
+	// error marked Permanent rejects it for good (dead-lettering it where the
+	// broker is configured to); any other error asks the broker to redeliver
+	// where it can (the in-memory broker only logs it).
 	HandlerFunc func(ctx context.Context, msg Message) error
 
 	// OnErrorFunc receives subscription failures that surface after Subscribe
@@ -44,12 +39,13 @@ type (
 )
 
 // Handle adapts a typed handler to a HandlerFunc, decoding JSON payloads. A
-// payload that fails to decode is returned as the handler error.
+// payload that fails to decode is returned as a Permanent error, since no
+// redelivery can fix it.
 func Handle[T any](h func(ctx context.Context, payload T, msg Message) error) HandlerFunc {
 	return func(ctx context.Context, msg Message) error {
 		var payload T
 		if err := msg.Bind(&payload); err != nil {
-			return err
+			return Permanent(err)
 		}
 
 		return h(ctx, payload, msg)

@@ -109,28 +109,28 @@ func searchFromURL(uri *url.URL) (query.SrchOption, error) {
 func parseFilterTree(data []byte) (query.Filters, error) {
 	var condition map[string]any
 	if err := json.Unmarshal(data, &condition); err != nil {
-		return query.Filters{}, fields.NewErrWithFieldName(query.FieldNameFilters, ErrInvalidFilterFormat)
+		return query.Filters{}, fields.NewErrWithFieldName(filter.FieldNameFilters, ErrInvalidFilterFormat)
 	}
 	return parseFilterCondition(condition)
 }
 
 func parseFilterCondition(condition map[string]any) (query.Filters, error) {
 	if len(condition) != 1 {
-		return query.Filters{}, fields.NewErrWithFieldName(query.FieldNameFilters, ErrInvalidFilterFormat)
+		return query.Filters{}, fields.NewErrWithFieldName(filter.FieldNameFilters, ErrInvalidFilterFormat)
 	}
 
 	for key, value := range condition {
 		if key == string(fieldNameAnd) || key == string(fieldNameOr) {
 			children, ok := value.([]any)
 			if !ok || len(children) == 0 {
-				return query.Filters{}, fields.NewErrWithFieldName(query.FieldNameFilters, ErrInvalidFilterFormat)
+				return query.Filters{}, fields.NewErrWithFieldName(filter.FieldNameFilters, ErrInvalidFilterFormat)
 			}
 
 			parsed := make([]query.Filters, 0, len(children))
 			for _, child := range children {
 				childCondition, ok := child.(map[string]any)
 				if !ok {
-					return query.Filters{}, fields.NewErrWithFieldName(query.FieldNameFilters, ErrInvalidFilterFormat)
+					return query.Filters{}, fields.NewErrWithFieldName(filter.FieldNameFilters, ErrInvalidFilterFormat)
 				}
 
 				parsedChild, err := parseFilterCondition(childCondition)
@@ -172,7 +172,7 @@ func parseFilterCondition(condition map[string]any) (query.Filters, error) {
 		}
 	}
 
-	return query.Filters{}, fields.NewErrWithFieldName(query.FieldNameFilters, ErrInvalidFilterFormat)
+	return query.Filters{}, fields.NewErrWithFieldName(filter.FieldNameFilters, ErrInvalidFilterFormat)
 }
 
 func parseOperator(val string) filter.Operator {

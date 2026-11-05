@@ -2,12 +2,10 @@ package inmem
 
 import (
 	"context"
+	"errors"
 	"expvar"
 	"fmt"
 	"sync"
-
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/sergisimo/ledger/internal/platform/fields"
 	"github.com/sergisimo/ledger/internal/platform/messaging"
@@ -46,10 +44,7 @@ type (
 
 const defaultBuffer = 256
 
-var (
-	droppedMessages = expvar.NewInt("messaging.inmem.dropped")
-	tracer          = otel.Tracer("messaging/inmem")
-)
+var droppedMessages = expvar.NewInt("messaging.inmem.dropped")
 
 // SubscriberWithBuffer sets the subscription queue size; n < 1 keeps the
 // default of 256.
@@ -82,9 +77,7 @@ func NewSubscriber(broker *Broker, topic string, h messaging.HandlerFunc, opts .
 
 	cfg := subscriberCfg{buffer: defaultBuffer}
 	for _, opt := range opts {
-		if opt != nil {
-			opt(&cfg)
-		}
+		opt(&cfg)
 	}
 
 	return &Subscriber{broker: broker, topic: topic, handler: h, cfg: cfg}, nil
@@ -168,18 +161,12 @@ func (s *Subscriber) run(w *worker) {
 }
 
 func (s *Subscriber) consume(ctx context.Context, w *worker, msg messaging.Message) {
-	ctx = messaging.ExtractTrace(ctx, msg)
-	ctx, span := tracer.Start(ctx, "inmem.consume "+s.topic, trace.WithSpanKind(trace.SpanKindConsumer))
-	defer span.End()
-
-	defer func() {
-		if r := recover(); r != nil {
-			s.fail(ctx, w, fmt.Errorf("handler for topic %s panicked: %v", s.topic, r))
-		}
-	}()
-
-	if err := s.handler(ctx, msg); err != nil {
-		span.RecordError(err)
+	err := messaging.Consume(ctx, SystemName, msg, s.handler)
+	switch {
+	case err == nil:
+	case errors.Is(err, messaging.ErrHandlerPanic):
+		s.fail(ctx, w, err)
+	default:
 		s.broker.log.
 			With("topic", s.topic).
 			With("msgID", msg.ID).

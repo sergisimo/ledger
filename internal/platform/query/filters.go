@@ -26,8 +26,6 @@ type (
 )
 
 const (
-	FieldNameFilters fields.Name = "filters"
-
 	OpUnknown logicalOp = iota
 	OpAnd
 	OpOr

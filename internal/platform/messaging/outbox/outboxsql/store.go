@@ -18,9 +18,6 @@ import (
 	"github.com/sergisimo/ledger/internal/platform/query"
 )
 
-// FieldNameTransaction names the missing context transaction in the error
-// FetchPending returns when called outside one:
-// fields.NewErrNil(FieldNameTransaction).
 const FieldNameTransaction fields.Name = "transaction"
 
 // Store is the gorm-backed outbox.Store. Most applications wire it with
